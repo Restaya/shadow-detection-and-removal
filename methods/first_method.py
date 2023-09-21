@@ -19,9 +19,13 @@ light_level_stddev = cv2.meanStdDev(light_level_mean)[0]
 shadow_mask = lab_image.copy()
 shadow_mask.fill(0)
 
-# TODO if a_level_mean + b_level_mean <= 256:
-shadow_mask[light_level <= (light_level_mean - light_level_stddev/3)] = 255
-#TODO else:
+print(a_level_mean+b_level_mean)
+if a_level_mean + b_level_mean <= 256:
+  shadow_mask[light_level <= (light_level_mean - light_level_stddev/3)] = 255
+
+#TODO according to the 2012 version
+else:
+  shadow_mask[light_level <= light_level_mean] = 255
 
 
 # using morphological opening to erase smaller non-shadow pixels
