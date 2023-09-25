@@ -1,6 +1,7 @@
 import cv2
+import numpy as np
 
-image = cv2.imread("../test_pictures/first_method/lssd803.jpg", cv2.IMREAD_COLOR)
+image = cv2.imread("../test_pictures/first_method/lssd297.jpg", cv2.IMREAD_COLOR)
 cv2.imshow("Image", image)
 
 # converts the image to lab color space
@@ -9,37 +10,44 @@ lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
 # splits the channels of the image
 light_level, a_level, b_level = cv2.split(lab_image)
 
-# calculates the mean of each channel in the LAB colour space
-a_level_mean = cv2.mean(a_level)[0]
-b_level_mean = cv2.mean(b_level)[0]
-
-# calculates the mean and standard deviation of the light level channel
+# calculates the mean and standard deviation of each channel in the LAB colour space
 light_level_mean, light_level_stddev = cv2.meanStdDev(light_level)
+a_level_mean, a_level_stddev = cv2.meanStdDev(a_level)
+b_level_mean, b_level_stddev = cv2.meanStdDev(b_level)
+
+# combining the Light and B channels
+merged_l_b = cv2.add(light_level,b_level)
+merged_channels_mean, merged_channels_stddev = cv2.meanStdDev(merged_l_b)
 
 shadow_mask = lab_image.copy()
 shadow_mask.fill(0)
 
-# using morphological opening to erase smaller non-shadow pixels
-struct = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-
 if a_level_mean + b_level_mean <= 256:
-    shadow_mask[light_level <= (light_level_mean - (light_level_stddev / 3))] = 255
-
-    mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_RECT, struct)
-
-# TODO according to the 2012 version
+    shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3)] = 255
 else:
-    shadow_mask[light_level < light_level_stddev] = 255
+    #TODO this threshhold is temporary, not sure which is the optimal
+    shadow_mask[merged_l_b <= merged_channels_mean - merged_channels_stddev/3] = 255
+    #shadow_mask[(light_level <= light_level_mean - light_level_stddev/3) & (b_level <= b_level_mean - b_level_stddev/3)] = 255
 
-    dst = cv2.dilate(shadow_mask, struct)
-    dst2 = cv2.erode(dst, struct, iterations=2)
-    mask = cv2.dilate(dst2, struct)
+# using morphological opening to erase smaller non-shadow pixels
+struct = cv2.getStructuringElement(cv2.MORPH_RECT, (7,7))
 
+#TODO not sure which morphological operation is the best
+
+# dst = cv2.dilate(shadow_mask, struct)
+# dst2 = cv2.erode(dst, struct, iterations=2)
+# mask = cv2.dilate(dst2, struct)
+
+mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, struct)
+
+#cv2.imshow("Mask",mask)
+
+mask = cv2.medianBlur(mask,3)
 
 lab_image = cv2.cvtColor(lab_image,cv2.COLOR_LAB2BGR)
-lab_image[mask > 0] = 255
+lab_image[mask != 0] = 255
 
-cv2.imshow("Shadow detection",mask)
+
 cv2.imshow("Result", lab_image)
 
 cv2.waitKey(0)
