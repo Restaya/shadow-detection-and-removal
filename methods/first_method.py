@@ -5,8 +5,6 @@ image = cv2.imread("../test_pictures/lssd9.jpg", cv2.IMREAD_COLOR)
 image_shape = image.shape[:2]
 cv2.imshow("Original", image)
 
-blue,green,red = cv2.split(image)
-
 # converts the image to lab color space
 lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
 
@@ -37,7 +35,10 @@ mask = cv2.dilate(dst2, struct)
 mask = cv2.medianBlur(mask, 3)
 
 # finding contours with mask
-contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+# creating external contours
+contours_external, hierarchy_external = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
 # filtering out the smaller non-shadow contours
 corrected_contours = []
@@ -45,64 +46,74 @@ for contour in contours:
     if cv2.arcLength(contour, True) > 60:
         corrected_contours.append(contour)
 
-# TODO maybe there is a simple way to separate regions
+# same for external contours
+corrected_external_contours = []
+for contour in contours_external:
+    if cv2.arcLength(contour, True) > 60:
+        corrected_external_contours.append(contour)
+
+#TODO delete when done
+print(len(corrected_contours) == len(corrected_external_contours))
+
 # based on the original mask, creating a better one to fill in smaller gaps using the found contours
 contour_mask = np.zeros(image_shape, np.uint8)
 
-individual_shadow_masks = []
-individiual_shadow_region_mean = []
+# inside shadow region masks
+inside_shadow_masks = []
 
-individual_shadow_contour_mask = []
-individual_shadow_contour_mask_mean = []
+# external contours masks
+external_contour_masks = []
 
-for contour in corrected_contours:
+# creating a better mask with contours
+sc_mask = np.zeros(image_shape, np.uint8)
 
-    temp_mask = np.zeros(image_shape, np.uint8)
+for i in range(len(corrected_contours)):
 
-    # calculating the outside mean values of the contour
-    cv2.drawContours(temp_mask, [contour], 0, 255, 1)
-    individual_shadow_contour_mask_mean = cv2.mean(image,temp_mask)
-    individual_shadow_contour_mask.append(temp_mask)
+    temp_shadow_region_mask = np.zeros(image_shape, np.uint8)
+    temp_external_contour_mask = np.zeros(image_shape, np.uint8)
 
-    # remaking the shadow mask
-    cv2.drawContours(temp_mask,[contour], 0, 255, -1)
-    individual_shadow_masks.append(temp_mask)
+    cv2.drawContours(sc_mask,corrected_contours,i,255,-1)
 
-    # calculating the color mean inside each shadow region
-    temp_mean = cv2.mean(image,temp_mask)
-    individiual_shadow_region_mean.append(temp_mean)
+    # calculating the mean color values inside the shadow region
+    cv2.drawContours(temp_shadow_region_mask,corrected_contours,i,255,-1)
+    temp_shadow_mean = cv2.mean(image,temp_shadow_region_mask)
+    inside_shadow_masks.append(temp_shadow_region_mask)
 
-    cv2.drawContours(contour_mask, [contour], 0, 255, -1)
+    # maybe do this -> round(temp_shadow_mean[0],0)
 
-    # calculating the color ratio inside and outside of shadow region
-    blue_ratio = round(individual_shadow_contour_mask_mean[0] / temp_mean[0],4)
-    green_ratio = round(individual_shadow_contour_mask_mean[1] / temp_mean[1],4)
-    red_ratio = round(individual_shadow_contour_mask_mean[2] / temp_mean[2],4)
+    # calculating the outside mean color values
+    cv2.drawContours(temp_external_contour_mask,corrected_external_contours,i,255,3)
+    temp_ec_mask_mean = cv2.mean(image,temp_external_contour_mask)
+    external_contour_masks.append(temp_external_contour_mask)
 
-    # getting the shadow part of the image
+    # calculating the ratios between outside/inside
+    blue_ratio = temp_ec_mask_mean[0] / temp_shadow_mean[0]
+    green_ratio = temp_ec_mask_mean[1] / temp_shadow_mean[1]
+    red_ratio = temp_ec_mask_mean[2] / temp_shadow_mean[2]
+
     temp_image = image.copy()
-    temp_image[temp_mask != 255] = 0
+    temp_image[temp_shadow_region_mask != 255] = 0
+    #image[temp_shadow_region_mask == 255] = 0
 
     temp_blue,temp_green,temp_red = cv2.split(temp_image)
 
-    # TODO solve how to multiply each channel
+    temp_blue = (temp_blue * blue_ratio)
+    temp_green = (temp_green * green_ratio)
+    temp_red = (temp_red * red_ratio)
 
-    temp_blue = cv2.multiply(temp_blue,blue_ratio)
-    temp_green = cv2.multiply(temp_green,green_ratio)
-    temp_red = cv2.multiply(temp_red,red_ratio)
+    temp_blue = np.uint8(temp_blue)
+    temp_green = np.uint8(temp_green)
+    temp_red = np.uint8(temp_red)
 
-    temp_image = cv2.merge((temp_blue,temp_green,temp_red))
+    temp_result = cv2.merge((temp_blue,temp_green,temp_red))
 
-    result = cv2.add(image,temp_image)
+    result = cv2.add(temp_result,image)
 
-
-
-    #TODO
+    #TODO RATIO OF AVERAGE FFS
     # calculate the mean of the outline contour with the given matrix calculation stuff
     # get the outside/inside region ratio, put it in the array
     # remove the current shadow on the final image
-    
-    # maybe one array needed of of contour outlines
+
     #TODO add to array and calculate inside of region
 
 
