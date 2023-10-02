@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-image = cv2.imread("../test_pictures/lssd9.jpg", cv2.IMREAD_COLOR)
+image = cv2.imread("../test_pictures/lssd229.jpg", cv2.IMREAD_COLOR)
 image_shape = image.shape[:2]
 cv2.imshow("Original", image)
 
@@ -35,10 +35,10 @@ mask = cv2.dilate(dst2, struct)
 mask = cv2.medianBlur(mask, 3)
 
 # finding contours with mask
-contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
 # creating external contours
-contours_external, hierarchy_external = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+contours_external, hierarchy_external = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
 # filtering out the smaller non-shadow contours
 corrected_contours = []
@@ -52,8 +52,10 @@ for contour in contours_external:
     if cv2.arcLength(contour, True) > 60:
         corrected_external_contours.append(contour)
 
-#TODO delete when done
+#TODO delete when properly finished
+print("Test if the two contour arrays are equal\n")
 print(len(corrected_contours) == len(corrected_external_contours))
+print(str(len(corrected_contours)) + " " + str(len(corrected_external_contours)))
 
 # based on the original mask, creating a better one to fill in smaller gaps using the found contours
 contour_mask = np.zeros(image_shape, np.uint8)
@@ -67,6 +69,8 @@ external_contour_masks = []
 # creating a better mask with contours
 sc_mask = np.zeros(image_shape, np.uint8)
 
+#TODO fix for multiple contours, currently works properly, when their is only one
+# test on lssd203.jpg, if it works
 for i in range(len(corrected_contours)):
 
     temp_shadow_region_mask = np.zeros(image_shape, np.uint8)
@@ -78,8 +82,6 @@ for i in range(len(corrected_contours)):
     cv2.drawContours(temp_shadow_region_mask,corrected_contours,i,255,-1)
     temp_shadow_mean = cv2.mean(image,temp_shadow_region_mask)
     inside_shadow_masks.append(temp_shadow_region_mask)
-
-    # maybe do this -> round(temp_shadow_mean[0],0)
 
     # calculating the outside mean color values
     cv2.drawContours(temp_external_contour_mask,corrected_external_contours,i,255,3)
@@ -93,28 +95,20 @@ for i in range(len(corrected_contours)):
 
     temp_image = image.copy()
     temp_image[temp_shadow_region_mask != 255] = 0
-    #image[temp_shadow_region_mask == 255] = 0
 
-    temp_blue,temp_green,temp_red = cv2.split(temp_image)
+    blue, green, red = cv2.split(temp_image)
 
-    temp_blue = (temp_blue * blue_ratio)
-    temp_green = (temp_green * green_ratio)
-    temp_red = (temp_red * red_ratio)
+    blue = np.dot(blue, blue_ratio)
+    green = np.dot(green,green_ratio)
+    red = np.dot(red,red_ratio)
 
-    temp_blue = np.uint8(temp_blue)
-    temp_green = np.uint8(temp_green)
-    temp_red = np.uint8(temp_red)
+    blue = cv2.normalize(blue,None,0,255,cv2.NORM_MINMAX,cv2.CV_8U)
+    green = cv2.normalize(green, None, 0,255, cv2.NORM_MINMAX, cv2.CV_8U)
+    red = cv2.normalize(red, None, 0,255, cv2.NORM_MINMAX, cv2.CV_8U)
 
-    temp_result = cv2.merge((temp_blue,temp_green,temp_red))
+    temp_image = cv2.merge((blue,green,red))
 
-    result = cv2.add(temp_result,image)
-
-    #TODO RATIO OF AVERAGE FFS
-    # calculate the mean of the outline contour with the given matrix calculation stuff
-    # get the outside/inside region ratio, put it in the array
-    # remove the current shadow on the final image
-
-    #TODO add to array and calculate inside of region
+    result = cv2.add(image,temp_image)
 
 
 cv2.imshow("Result", result)
