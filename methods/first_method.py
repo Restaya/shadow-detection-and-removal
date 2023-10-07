@@ -112,6 +112,24 @@ for res in results:
     result = cv2.add(image,res)
     i += 1
 
+
+#TODO edge correction here
+#creating a contour mask to be used for edge smoothing
+contour_mask = np.zeros(result.shape[:2], np.uint8)
+cv2.drawContours(contour_mask,corrected_contours,-1,1,3)
+
+contour_mask = cv2.cvtColor(contour_mask,cv2.COLOR_GRAY2BGR,contour_mask)
+
+contour_struct = cv2.getStructuringElement(cv2.MORPH_RECT, (6,6))
+contour_mask = cv2.dilate(contour_mask,contour_struct)
+
+# inverting the contour mask for masking
+inverted_contour_mask = ~contour_mask + 2
+
+result_median = cv2.medianBlur(result,3)
+
+result = (result_median * contour_mask) + (result * inverted_contour_mask)
+
 cv2.imshow("Result", result)
 
 cv2.waitKey(0)
