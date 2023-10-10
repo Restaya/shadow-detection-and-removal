@@ -20,6 +20,7 @@ b_level_mean, b_level_stddev = cv2.meanStdDev(b_level)
 # creates a blank mask with the shape of the image
 shadow_mask = np.zeros(image_shape, np.uint8)
 
+# based on a threshold it detects the shadows on the image
 if a_level_mean + b_level_mean <= 256:
     shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3)] = 255
 else:
@@ -38,7 +39,7 @@ mask = cv2.medianBlur(mask, 3)
 # finding contours with mask
 contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-# note the arc threshold isn't based on the paper, since it's not specified in it
+# the arc threshold isn't accurate, since it's not specified in the paper
 # filtering out the smaller non-shadow contours
 corrected_contours = []
 for contour in contours:
@@ -57,51 +58,55 @@ for i in range(len(corrected_contours)):
     cv2.drawContours(temp_shadow_region_mask, corrected_contours, i, 255, -1)
 
     # dilates the image to get a bigger shadow region
-    dil_struct = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    dil_struct = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     external_region_mask = cv2.dilate(temp_shadow_region_mask, dil_struct)
 
     # creating the mask of just outside the shadow region
     external_region_mask_contour = cv2.subtract(external_region_mask, temp_shadow_region_mask)
 
+    # creating a mask with only the outlines of the shadow region
     shadow_region_edges = cv2.add(external_region_mask_contour, shadow_region_edges)
 
-    shadow_mean = cv2.mean(image, temp_shadow_region_mask)
+    # calculatiog the insde and just outside means of the shadow region
+    shadow_mean = cv2.mean(image, external_region_mask)
     outside_mean = cv2.mean(image, external_region_mask_contour)
 
+    # calculating the ratio of outside to inside
     blue_ratio = round(outside_mean[0] / shadow_mean[0], 4)
-    green_ratio = round(outside_mean[1] / shadow_mean[0], 4)
+    green_ratio = round(outside_mean[1] / shadow_mean[1], 4)
     red_ratio = round(outside_mean[2] / shadow_mean[2], 4)
 
+    # copying the original image and zeroing where there's a shadow
     masked_image = image.copy()
     masked_image[external_region_mask != 255] = 0
 
     blue, green, red = cv2.split(masked_image)
 
+    # multiplying the BGR channels with the constant ratios
     blue = np.dot(blue, blue_ratio)
     green = np.dot(green, green_ratio)
     red = np.dot(red, red_ratio)
 
     result_image = cv2.merge((blue, green, red))
+
+    # converting the matrix from float to integer matrix
     result_image = cv2.normalize(result_image, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
 
     result = cv2.add(image, result_image)
 
-# converting the edges mask to contours
-con, hier = cv2.findContours(shadow_region_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+# creating a mask for edge smoothing
+edge_mask = np.zeros(result.shape[:2], np.uint8)
+edge_mask[shadow_region_edges == 255] = 1
 
-# creating a contour mask to be used for edge smoothing
-contour_mask = np.zeros(result.shape[:2], np.uint8)
-cv2.drawContours(contour_mask, con, -1, 1, 3)
+edge_mask = cv2.cvtColor(edge_mask, cv2.COLOR_GRAY2BGR)
 
-contour_mask = cv2.cvtColor(contour_mask, cv2.COLOR_GRAY2BGR, contour_mask)
+# inverting the edge mask
+inverted_edge_mask = ~edge_mask + 2
 
-# inverting the contour mask for masking
-inverted_contour_mask = ~contour_mask + 2
+result_median = cv2.medianBlur(result, 5)
 
-result_median = cv2.medianBlur(result, 3)
-
-# combining the median blurred image with contour and the normal image with the inverted contour
-result = (result_median * contour_mask) + (result * inverted_contour_mask)
+# with this equation the over illuminated edges are less bright
+result = (result_median * edge_mask) + (result * inverted_edge_mask)
 
 cv2.imshow("Result", result)
 
