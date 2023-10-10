@@ -3,6 +3,7 @@ import numpy as np
 
 image = cv2.imread("../test_pictures/lssd9.jpg", cv2.IMREAD_COLOR)
 image_shape = image.shape[:2]
+
 cv2.imshow("Original", image)
 
 # converts the image to lab color space
@@ -35,99 +36,71 @@ mask = cv2.dilate(dst2, struct)
 mask = cv2.medianBlur(mask, 3)
 
 # finding contours with mask
-contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-# creating external contours
-contours_external, hierarchy_external = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-
+# note the arc threshold isn't based on the paper, since it's not specified in it
 # filtering out the smaller non-shadow contours
 corrected_contours = []
 for contour in contours:
     if cv2.arcLength(contour, True) > 60:
         corrected_contours.append(contour)
 
-# same for external contours
-corrected_external_contours = []
-for contour in contours_external:
-    if cv2.arcLength(contour, True) > 60:
-        corrected_external_contours.append(contour)
+# contains the edges of the shadow regions
+shadow_region_edges = np.zeros(image_shape, np.uint8)
 
-#TODO delete when properly finished
-print("Test if the two contour arrays are equal")
-print(len(corrected_contours) == len(corrected_external_contours))
-print(str(len(corrected_contours)) + " " + str(len(corrected_external_contours)))
-
-# inside shadow region masks
-shadow_masks = []
-
-# external contours masks
-external_contour_masks = []
-
-results = []
-#TODO don't count edge of the frame in to the contour somehow
-# first need to fix the edges
-# fix for multiple contours, currently works properly, when their is only one
-# maybe remove part of the image with the mask
-# test on lssd203.jpg, if it works
 for i in range(len(corrected_contours)):
 
+    # temporary mask for each shadow region
     temp_shadow_region_mask = np.zeros(image_shape, np.uint8)
-    temp_external_contour_mask = np.zeros(image_shape, np.uint8)
 
-    # calculating the mean color values inside the shadow region
-    cv2.drawContours(temp_shadow_region_mask,corrected_contours,i,255,cv2.FILLED)
-    temp_shadow_mean = cv2.mean(image,temp_shadow_region_mask)
-    shadow_masks.append(temp_shadow_region_mask)
+    # drawing the individual contours
+    cv2.drawContours(temp_shadow_region_mask, corrected_contours, i, 255, -1)
 
-    # calculating the outside mean color values
-    cv2.drawContours(temp_external_contour_mask,corrected_external_contours,i,255,3)
-    temp_ec_mask_mean = cv2.mean(image,temp_external_contour_mask)
-    external_contour_masks.append(temp_external_contour_mask)
+    # dilates the image to get a bigger shadow region
+    dil_struct = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    external_region_mask = cv2.dilate(temp_shadow_region_mask, dil_struct)
 
-    # calculating the ratios between outside/inside
-    blue_ratio = round(temp_ec_mask_mean[0] / temp_shadow_mean[0],4)
-    green_ratio = round(temp_ec_mask_mean[1] / temp_shadow_mean[1],4)
-    red_ratio = round(temp_ec_mask_mean[2] / temp_shadow_mean[2],4)
+    # creating the mask of just outside the shadow region
+    external_region_mask_contour = cv2.subtract(external_region_mask, temp_shadow_region_mask)
 
-    temp_image = image.copy()
-    temp_image[temp_shadow_region_mask != 255] = 0
+    shadow_region_edges = cv2.add(external_region_mask_contour, shadow_region_edges)
 
-    blue, green, red = cv2.split(temp_image)
+    shadow_mean = cv2.mean(image, temp_shadow_region_mask)
+    outside_mean = cv2.mean(image, external_region_mask_contour)
+
+    blue_ratio = round(outside_mean[0] / shadow_mean[0], 4)
+    green_ratio = round(outside_mean[1] / shadow_mean[0], 4)
+    red_ratio = round(outside_mean[2] / shadow_mean[2], 4)
+
+    masked_image = image.copy()
+    masked_image[external_region_mask != 255] = 0
+
+    blue, green, red = cv2.split(masked_image)
 
     blue = np.dot(blue, blue_ratio)
-    green = np.dot(green,green_ratio)
-    red = np.dot(red,red_ratio)
+    green = np.dot(green, green_ratio)
+    red = np.dot(red, red_ratio)
 
-    # TODO some how normalization reduces the values
-    result_image = cv2.merge((blue,green,red))
-    result_image = cv2.normalize(result_image,None,255,0,cv2.NORM_MINMAX,cv2.CV_8U)
+    result_image = cv2.merge((blue, green, red))
+    result_image = cv2.normalize(result_image, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
 
-    results.append(result_image)
+    result = cv2.add(image, result_image)
 
-# TODO don't remove non shadow regions
-#  note without the zeroing the shadow part of the image, it gives better result in some cases
-i = 0
-for res in results:
-    #image[shadow_masks[i] == 255] = 0
-    result = cv2.add(image,res)
-    i += 1
+# converting the edges mask to contours
+con, hier = cv2.findContours(shadow_region_edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-
-#TODO edge correction here
-#creating a contour mask to be used for edge smoothing
+# creating a contour mask to be used for edge smoothing
 contour_mask = np.zeros(result.shape[:2], np.uint8)
-cv2.drawContours(contour_mask,corrected_contours,-1,1,3)
+cv2.drawContours(contour_mask, con, -1, 1, 3)
 
-contour_mask = cv2.cvtColor(contour_mask,cv2.COLOR_GRAY2BGR,contour_mask)
-
-contour_struct = cv2.getStructuringElement(cv2.MORPH_RECT, (6,6))
-contour_mask = cv2.dilate(contour_mask,contour_struct)
+contour_mask = cv2.cvtColor(contour_mask, cv2.COLOR_GRAY2BGR, contour_mask)
 
 # inverting the contour mask for masking
 inverted_contour_mask = ~contour_mask + 2
 
-result_median = cv2.medianBlur(result,3)
+result_median = cv2.medianBlur(result, 3)
 
+# combining the median blurred image with contour and the normal image with the inverted contour
 result = (result_median * contour_mask) + (result * inverted_contour_mask)
 
 cv2.imshow("Result", result)
