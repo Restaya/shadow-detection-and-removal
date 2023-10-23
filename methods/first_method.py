@@ -3,6 +3,9 @@ import numpy as np
 
 
 def first_method(filename):
+
+    e1 = cv2.getTickCount()
+
     image = cv2.imread("../test_pictures/" + filename + ".jpg", cv2.IMREAD_COLOR)
     image_shape = image.shape[:2]
 
@@ -116,6 +119,12 @@ def first_method(filename):
     result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
 
     cv2.imshow("Result", result)
+
+    # time it took to complete the method
+    e2 = cv2.getTickCount()
+    time = (e2 - e1) / cv2.getTickFrequency()
+
+    print("Completed in : " + str(round(time, 4)) + " seconds")
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
