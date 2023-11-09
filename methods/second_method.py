@@ -1,54 +1,39 @@
 import cv2
 import numpy as np
-from sklearn.cluster import MeanShift, estimate_bandwidth
-
-import multiprocessing
 
 
 def second_method(filename):
-
     e1 = cv2.getTickCount()
-
-    # gets the amount of cpu cores for parallel computing
-    cpu_cores = multiprocessing.cpu_count()
-    cpu_cores //= 2
 
     image = cv2.imread("../test_pictures/" + filename + ".jpg", cv2.IMREAD_COLOR)
     image_shape = image.shape[:2]
 
     cv2.imshow("Original", image)
 
-    image = cv2.medianBlur(image, 3)
+    blue, green, red = cv2.split(image)
 
-    flat_image = image.reshape((-1, 3))
-    flat_image = np.float32(flat_image)
+    # converting the image to grayscale with formula (1)
+    gray_image = np.log(blue * (np.max(blue)/(np.min(blue)+1)) + green * (np.max(green)/(np.min(green)+1)) + red * (np.max(red)/(np.min(red)+1)))
+    gray_image = cv2.normalize(gray_image, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
 
-    # mean shift
-    bandwidth = estimate_bandwidth(flat_image, quantile=0.06, n_samples=1000, n_jobs=cpu_cores)
-    mean_shift = MeanShift(bandwidth=bandwidth, max_iter=800, bin_seeding=True, n_jobs=cpu_cores)
-    mean_shift.fit(flat_image)
-    labeled = mean_shift.labels_
+    cv2.imshow("Gray Image", gray_image)
 
-    segments = np.unique(labeled)
-    print('Number of segments: ' + str(segments.shape[0]))
+    # start of watershed algorithm preprocessing
+    thresh,gray_image = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    total = np.zeros((segments.shape[0], 3), dtype=float)
-    count = np.zeros(total.shape, dtype=float)
-    for i, label in enumerate(labeled):
-        total[label] = total[label] + flat_image[i]
-        count[label] += 1
-    avg = total / count
-    avg = np.uint8(avg)
+    # switch to one liner opening and closing
+    struct = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    dst = cv2.dilate(gray_image, struct)
+    dst2 = cv2.erode(dst, struct, iterations=2)
+    morp_image = cv2.dilate(dst2, struct)
 
-    # cast the labeled image into the corresponding average color
-    res = avg[labeled]
-    result = res.reshape((image.shape))
+    cv2.imshow("Preprocessed Gray Image",morp_image)
+
+
 
     # time it took to complete the method
     e2 = cv2.getTickCount()
     time = (e2 - e1) / cv2.getTickFrequency()
-
-    cv2.imshow("Result", result)
 
     print("Completed in : " + str(round(time, 4)) + " seconds")
 
