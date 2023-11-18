@@ -34,35 +34,25 @@ def second_method_detection(filename):
 
     markers = cv2.watershed(image,markers)
 
+    # getting the segments through unique values from the watershed result
+    markers_list = np.unique(markers)
+    print("Number of segments:  " + str(len(markers_list)))
+
     # note : showing boundaries, for visuals
     watershed_borders = image.copy()
     watershed_borders[markers == -1] = [0, 0, 255]
 
     cv2.imshow("Watershed Result", watershed_borders)
 
-    markers_8 = markers.astype(np.uint8)
-    ret, markers_8 = cv2.threshold(markers_8, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+    for value in markers_list:
 
-    cv2.imshow("Region Borders",markers_8)
+        if value == -1:
+            continue
 
-    contours, hierarchy = cv2.findContours(markers_8, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        region_mask = np.zeros(image_shape, np.uint8)
+        region_mask[markers == value] = 255
 
-    # note: somehow, some contours are detected twice, needs debugging
-    # note: remove the whole sized border
-    print(len(contours))
-
-    region_mask = np.zeros(image_shape, np.uint8)
-    cv2.drawContours(region_mask, contours, 0, 255, -1)
-    cv2.imshow("Regiaaa",region_mask)
-
-    # for i in range(len(contours)):
-    #
-    #     region_mask = np.zeros(image_shape, np.uint8)
-    #
-    #     cv2.drawContours(region_mask,contours,i,255,-1)
-    #
-    #     cv2.imshow(str(i) + "th contour",region_mask)
-    #     #cv2.floodFill(region_mask,region_mask,None,255)
+        #cv2.imshow(str(value) + "th Region mask",region_mask)
 
 
     cv2.waitKey(0)
