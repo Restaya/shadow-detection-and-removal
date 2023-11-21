@@ -46,7 +46,7 @@ def first_method(filename):
     # finding contours with mask
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    # the arc threshold isn't accurate, since it's not specified in the paper
+    # note: the arc threshold isn't accurate, since it's not specified in the paper
     # filtering out the smaller non-shadow contours
     corrected_contours = []
     for contour in contours:
