@@ -10,11 +10,18 @@ def second_method_detection(filename):
 
     blue, green, red = cv2.split(image)
 
-    # converting the image to grayscale with formula (1)
-    gray_image = cv2.log( blue * (np.max(blue) / (np.min(blue) + 1)) + green * (np.max(green) / (np.min(green) + 1)) + red * (np.max(red) / (np.min(red) + 1)))
-    gray_image = cv2.normalize(gray_image, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
+    # finding the maximums and minimums element wise of the image
+    image_max = np.maximum(blue, np.maximum(green, red))
+    image_min = np.minimum(blue, np.minimum(green, red))
 
-    # cv2.imshow("Gray Image", gray_image)
+    # avoid division with zero
+    image_min = np.where(image_min == 0, 1, image_min)
+    image_max = np.where(image_max == 0, 1, image_max)
+
+    gray_image = cv2.log(image_max / image_min)
+    gray_image = cv2.normalize(gray_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+
+    cv2.imshow("Gray Image", gray_image)
 
     # preprocessing for watershed segmentation
     _, gray_image = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -50,11 +57,14 @@ def second_method_detection(filename):
     k1 = 0.8
     k2 = 1.2
 
-    # array for the initial shadow mask
     initial_shadow_mask = np.zeros(image_shape, np.uint8)
 
-    # array for the rough shadow mask
-    rough_shadow_mask = np.zeros(image_shape, np.uint8)
+    initial_shadow_segments = []
+    initial_non_shadow_segments = []
+
+    # The first value in markers list is the borders, None at 0 index makes it able to not use value-1 at indexing
+    initial_shadow_segments.append(None)
+    initial_non_shadow_segments.append(None)
 
     for value in markers_list:
 
@@ -67,7 +77,7 @@ def second_method_detection(filename):
         segment_mask[markers == value] = 255
 
         # calculating the mean values of the segment
-        segment_mean = cv2.mean(image,segment_mask)
+        segment_mean = cv2.mean(image, segment_mask)
 
         image_segment = image.copy()
         image_segment[segment_mask != 255] = 0
@@ -105,36 +115,50 @@ def second_method_detection(filename):
         # for visual of the initial shadow mask
         initial_shadow_segment[segment_mask == 0] = 0
 
+        # adding both non-shadow and shadow segments to a list for later calculation
+        initial_shadow_segments.append(initial_shadow_segment)
+        initial_non_shadow_segments.append(initial_non_shadow_segment)
+
         initial_shadow_mask[initial_shadow_segment == 255] = 255
-        initial_non_shadow_mask = cv2.bitwise_not(initial_shadow_mask)
+        #cv2.imshow(str(value), segment_mask)
 
-        segment_mean_shadow = cv2.mean(image,initial_shadow_segment)
-        segment_mean_non_shadow = cv2.mean(image,initial_non_shadow_segment)
+    initial_non_shadow_mask = cv2.bitwise_not(initial_shadow_mask)
 
-        # note : need to break for to accurately calculate delta_b
-        delta_b = -1 * (cv2.mean(image,initial_shadow_mask)[0] - cv2.mean(image,initial_non_shadow_mask)[0])
+    delta_b = -1 * (cv2.mean(image, initial_shadow_mask)[0] - cv2.mean(image, initial_non_shadow_mask)[0])
 
-        l_vector_first_value = (m * (segment_mean_non_shadow[2]/segment_mean_non_shadow[0])) * delta_b
-        l_vector_second_value = (n * (segment_mean_non_shadow[1]/segment_mean_non_shadow[0])) * delta_b
+    # note: IT'S STILL NOT WORKING PROPERLY, NEED FURTHER DEBUGGING
 
-        l_vector = (l_vector_first_value, l_vector_second_value, 1 * delta_b)
+    rough_shadow_mask = np.zeros(image_shape, np.uint8)
+
+    for value in markers_list:
+
+        # skipping the image where borders are shown
+        if value == -1:
+            continue
+
+        segment_mean_shadow = cv2.mean(image, initial_shadow_segments[value])
+        segment_mean_non_shadow = cv2.mean(image, initial_non_shadow_segments[value])
+
+        l_vector_first_value = m * (segment_mean_non_shadow[2]/segment_mean_non_shadow[0])
+        l_vector_second_value = n * (segment_mean_non_shadow[1]/segment_mean_non_shadow[0])
+
+        l_vector = (l_vector_first_value * delta_b, l_vector_second_value * delta_b, 1 * delta_b)
         l_interval = ((k1 * l_vector[0], k2 * l_vector[0]), (k1 * l_vector[1], k2 * l_vector[1]), (k1 * l_vector[2], k2 * l_vector[2]))
 
         blue_diff = segment_mean_non_shadow[0] - segment_mean_shadow[0]
         green_diff = segment_mean_non_shadow[1] - segment_mean_shadow[1]
         red_diff = segment_mean_non_shadow[2] - segment_mean_shadow[2]
 
-        # TODO: bugfix needed
         if (l_interval[0][0] < red_diff < l_interval[0][1]) and (l_interval[1][0] < green_diff < l_interval[1][1]) and (l_interval[2][0] < blue_diff < l_interval[2][1]):
-            rough_shadow_mask[initial_shadow_segment == 255] = 255
+            rough_shadow_mask[initial_shadow_segments[value] == 255] = 255
 
-        #cv2.imshow(str(value), initial_non_shadow_segment)
+        #cv2.imshow(str(value), initial_non_shadow_segments[value])
 
     # the initial detected shadow mask, the borders are from the watershed's algorithm segment borders
     cv2.imshow("Initial Shadow Mask",initial_shadow_mask)
 
     # the rough shadow mask, where non-shadow segments are corrected
-    cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
+    #cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
