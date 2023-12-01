@@ -10,32 +10,32 @@ def second_method_detection(filename):
 
     blue, green, red = cv2.split(image)
 
-    # finding the maximums and minimums element wise of the image
-    image_max = np.maximum(blue, np.maximum(green, red))
-    image_min = np.minimum(blue, np.minimum(green, red))
+    # finding the maximum and minimums element wise of the image
+    image_max = cv2.max(blue, cv2.max(green, red))
+    image_min = cv2.min(blue, cv2.min(green, red))
 
-    # avoid division with zero
-    image_min = np.where(image_min == 0, 1, image_min)
-    image_max = np.where(image_max == 0, 1, image_max)
+    # # avoid division with zero
+    # image_min = np.where(image_min == 0, 1, image_min)
+    # image_max = np.where(image_max == 0, 1, image_max)
 
-    gray_image = cv2.log(image_max / image_min)
+    gray_image = cv2.log(image_max / (image_min + 1))
     gray_image = cv2.normalize(gray_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
-    cv2.imshow("Gray Image", gray_image)
+    # cv2.imshow("Gray Image", gray_image)
 
-    # preprocessing for watershed segmentation
-    _, gray_image = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    _, thresh = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    #cv2.imshow("Preprocessed Gray Image", gray_image)
+    #cv2.imshow("Threshold before processing", thresh)
 
-    # note: NEED TO CHANGE, LOWER NUMBER OF SEGMENTS OR SOMETHING
-    kernel = np.ones((7, 7), np.uint8)
-    opening = cv2.morphologyEx(gray_image, cv2.MORPH_OPEN, kernel)
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, np.ones((7, 7)))
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, np.ones((7, 7)))
 
-    #cv2.imshow("Morphed Image",opening)
+    #cv2.imshow("Morphed Image", thresh)
 
-    dist_transform = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+    dist_transform = cv2.distanceTransform(thresh, cv2.DIST_L2, 5)
     dist_transform = cv2.normalize(dist_transform, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+
+    #cv2.imshow("Distance Transform", dist_transform)
 
     _, markers = cv2.connectedComponents(dist_transform)
 
@@ -43,7 +43,7 @@ def second_method_detection(filename):
 
     # getting the segments through unique values from the watershed result
     markers_list = np.unique(markers)
-    print("Number of segments:  " + str(len(markers_list)))
+    print("Number of segments: " + str(len(markers_list)))
 
     # note : showing boundaries, for visuals
     watershed_borders = image.copy()
@@ -58,6 +58,9 @@ def second_method_detection(filename):
     k2 = 1.2
 
     initial_shadow_mask = np.zeros(image_shape, np.uint8)
+
+    # binary mask where the non-shadows are stored
+    color_mean_non_shadow_mask = np.zeros(image_shape, np.uint8)
 
     initial_shadow_segments = []
     initial_non_shadow_segments = []
@@ -83,7 +86,11 @@ def second_method_detection(filename):
         image_segment[segment_mask != 255] = 0
 
         # creates binary image where only pixels greater than the mean remain
-        segment_non_shadow_mask = cv2.inRange(image_segment, segment_mean, (255, 255, 255))
+        segment_non_shadow_mask = cv2.inRange(image_segment, segment_mean[0], (255, 255, 255))
+
+        # note: flip the non shadow mask into a shadow mask, then add each other into the color mask
+        # adds all non shadows to a binary image used for the final step to get the correct shadow boundaries
+        color_mean_non_shadow_mask[segment_non_shadow_mask == 255] = 255
 
         # calculating the mean values in the non-shadow segment
         segment_mean_non_shadow = cv2.mean(image,segment_non_shadow_mask)
@@ -120,7 +127,6 @@ def second_method_detection(filename):
         initial_non_shadow_segments.append(initial_non_shadow_segment)
 
         initial_shadow_mask[initial_shadow_segment == 255] = 255
-        #cv2.imshow(str(value), segment_mask)
 
     initial_non_shadow_mask = cv2.bitwise_not(initial_shadow_mask)
 
@@ -154,11 +160,25 @@ def second_method_detection(filename):
 
         #cv2.imshow(str(value), initial_non_shadow_segments[value])
 
+    # where the pixel are lower than the region mean
+    color_mean_shadow_mask = cv2.bitwise_not(color_mean_non_shadow_mask)
+    #cv2.imshow("Color mean shadow mask", color_mean_shadow_mask)
+
     # the initial detected shadow mask, the borders are from the watershed's algorithm segment borders
     cv2.imshow("Initial Shadow Mask",initial_shadow_mask)
 
     # the rough shadow mask, where non-shadow segments are corrected
     #cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
+
+    # note: switch the initial shadow mask to rough shadow mask once the watershed and delta_b is fixed
+    # based on the detected shadows and mean values, it creates the final shadow mask
+    shadow_mask = cv2.bitwise_and(initial_shadow_mask, color_mean_shadow_mask)
+    cv2.imshow("Result", shadow_mask)
+
+    # showing the detected shadows on the original image
+    shadow_image = image.copy()
+    shadow_image[shadow_mask == 255] = 255
+    cv2.imshow("Detected shadows",shadow_image)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
