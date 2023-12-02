@@ -21,7 +21,7 @@ def second_method_detection(filename):
     gray_image = cv2.log(image_max / (image_min + 1))
     gray_image = cv2.normalize(gray_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
-    # cv2.imshow("Gray Image", gray_image)
+    #cv2.imshow("Gray Image", gray_image)
 
     _, thresh = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
@@ -45,17 +45,12 @@ def second_method_detection(filename):
     markers_list = np.unique(markers)
     print("Number of segments: " + str(len(markers_list)))
 
-    # note : showing boundaries, for visuals
-    watershed_borders = image.copy()
-    watershed_borders[markers == -1] = [0, 0, 255]
-
-    cv2.imshow("Watershed Result", watershed_borders)
-
+    # note: k2 original value is 1.2
     # constants needed for later calculation
     m = 1.31
     n = 1.19
     k1 = 0.8
-    k2 = 1.2
+    k2 = 1.5
 
     initial_shadow_mask = np.zeros(image_shape, np.uint8)
 
@@ -93,13 +88,13 @@ def second_method_detection(filename):
         color_mean_non_shadow_mask[segment_non_shadow_mask == 255] = 255
 
         # calculating the mean values in the non-shadow segment
-        segment_mean_non_shadow = cv2.mean(image,segment_non_shadow_mask)
+        segment_mean_non_shadow = cv2.mean(image, segment_non_shadow_mask)
 
         # calculating the delta vectors values
         first_value = m * (segment_mean_non_shadow[2]/segment_mean_non_shadow[0])
         second_value = n * (segment_mean_non_shadow[1]/segment_mean_non_shadow[0])
 
-        delta_vector = (first_value,second_value,1)
+        delta_vector = (first_value, second_value, 1)
 
         # getting the segment of the image
         initial_shadow_segment = image.copy()
@@ -109,15 +104,15 @@ def second_method_detection(filename):
 
         # subtracting the minimal from the maximum based on the delta vector's two value
         if delta_vector[0] > delta_vector[1]:
-            x_subtracted = cv2.subtract(red,blue)
+            x_subtracted = cv2.subtract(red, blue)
         else:
-            x_subtracted = cv2.subtract(green,blue)
+            x_subtracted = cv2.subtract(green, blue)
 
         x_mean = cv2.mean(x_subtracted)
 
         # if the pixel value is lower than x_mean, it's a possible shadow
-        initial_shadow_segment = cv2.inRange(x_subtracted,0,x_mean[0])
-        initial_non_shadow_segment = cv2.inRange(x_subtracted,x_mean[0], 255)
+        initial_shadow_segment = cv2.inRange(x_subtracted, 0, x_mean[0])
+        initial_non_shadow_segment = cv2.inRange(x_subtracted, x_mean[0], 255)
 
         # for visual of the initial shadow mask
         initial_shadow_segment[segment_mask == 0] = 0
@@ -165,24 +160,28 @@ def second_method_detection(filename):
     #cv2.imshow("Color mean shadow mask", color_mean_shadow_mask)
 
     # the initial detected shadow mask, the borders are from the watershed's algorithm segment borders
-    cv2.imshow("Initial Shadow Mask",initial_shadow_mask)
+    #cv2.imshow("Initial Shadow Mask",initial_shadow_mask)
 
     # the rough shadow mask, where non-shadow segments are corrected
-    #cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
+    cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
 
     # note: switch the initial shadow mask to rough shadow mask once the watershed and delta_b is fixed
     # based on the detected shadows and mean values, it creates the final shadow mask
-    shadow_mask = cv2.bitwise_and(initial_shadow_mask, color_mean_shadow_mask)
+    shadow_mask = cv2.bitwise_and(rough_shadow_mask, color_mean_shadow_mask)
     cv2.imshow("Result", shadow_mask)
 
     # showing the detected shadows on the original image
     shadow_image = image.copy()
     shadow_image[shadow_mask == 255] = 255
-    cv2.imshow("Detected shadows",shadow_image)
+
+    # showing the watershed borders for visuals
+    shadow_image[markers == -1] = [0, 0, 255]
+
+    cv2.imshow("Detected shadows", shadow_image)
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    second_method_detection("lssd297")
+    second_method_detection("lssd9")
