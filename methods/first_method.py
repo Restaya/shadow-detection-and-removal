@@ -4,8 +4,6 @@ import numpy as np
 
 def first_method(filename):
 
-    e1 = cv2.getTickCount()
-
     image = cv2.imread("../test_pictures/" + filename + ".jpg", cv2.IMREAD_COLOR)
     image_shape = image.shape[:2]
 
@@ -13,6 +11,8 @@ def first_method(filename):
 
     # converts the image to lab color space
     lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+
+    #cv2.imshow("LAB Image", lab_image)
 
     # splits the channels of the image
     light_level, a_level, b_level = cv2.split(lab_image)
@@ -33,60 +33,72 @@ def first_method(filename):
                     b_level <= b_level_mean - b_level_stddev / 3) & (
                                 b_level >= -1 * b_level_mean + b_level_stddev / 3)] = 255
 
-    # using morphological opening to erase smaller non-shadow pixels
-    struct = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    # using morphological opening and closing to erase smaller non-shadow pixels
+    mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((7, 7)))
 
-    dst = cv2.dilate(shadow_mask, struct)
-    dst2 = cv2.erode(dst, struct, iterations=2)
-    mask = cv2.dilate(dst2, struct)
+    #cv2.imshow("Mask after morphological cleaning", mask)
 
+    # note: maybe increase ksize, need testing
     # using median blur to smoothen rough edges
-    mask = cv2.medianBlur(mask, 3)
+    mask = cv2.medianBlur(mask, 7)
 
-    # finding contours with mask
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # mask after using median filter
+    #cv2.imshow("Mask", mask)
 
-    # note: the arc threshold isn't accurate, since it's not specified in the paper
-    # filtering out the smaller non-shadow contours
-    corrected_contours = []
-    for contour in contours:
-        if cv2.arcLength(contour, True) > 60:
-            corrected_contours.append(contour)
+    # labeling all white segments
+    _, markers = cv2.connectedComponents(mask,connectivity=8)
 
-    # contains the edges of the shadow regions
-    shadow_region_edges = np.zeros(image_shape, np.uint8)
+    markers_list = np.unique(markers)
 
-    for i in range(len(corrected_contours)):
-        # temporary mask for each shadow region
-        temp_shadow_region_mask = np.zeros(image_shape, np.uint8)
+    # stores the actual values of shadow segments
+    corrected_markers_list = []
 
-        # drawing the individual contours
-        cv2.drawContours(temp_shadow_region_mask, corrected_contours, i, 255, -1)
+    # removing small non shadows based on pixel size
+    for value in markers_list:
 
-        # dilates the image to get a bigger shadow region
-        dil_struct = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        external_region_mask = cv2.dilate(temp_shadow_region_mask, dil_struct)
+        if value == 0:
+            continue
 
-        # creating the mask of just outside the shadow region
-        external_region_mask_contour = cv2.subtract(external_region_mask, temp_shadow_region_mask)
+        temp_mask = np.zeros(image_shape, np.uint8)
+        temp_mask[markers == value] = 255
 
-        # creating a mask with only the outlines of the shadow region
-        shadow_region_edges = cv2.add(external_region_mask_contour, shadow_region_edges)
+        # note: the 200 threshold is based on try out
+        if cv2.countNonZero(temp_mask) > 200:
+            corrected_markers_list.append(value)
 
-        # calculatiog the insde and just outside means of the shadow region
-        shadow_mean = cv2.mean(image, external_region_mask)
-        outside_mean = cv2.mean(image, external_region_mask_contour)
+    print("Number of shadow segments: " + str(len(corrected_markers_list)))
 
-        # calculating the ratio of outside to inside
-        blue_ratio = round(outside_mean[0] / shadow_mean[0], 4)
-        green_ratio = round(outside_mean[1] / shadow_mean[1], 4)
-        red_ratio = round(outside_mean[2] / shadow_mean[2], 4)
+    # storing the shadow edges
+    shadow_edge_mask = np.zeros(image_shape, np.uint8)
+
+    for value in corrected_markers_list:
+
+        shadow_segment = np.zeros(image_shape, np.uint8)
+        shadow_segment[markers == value] = 255
+
+        # dilating the segment
+        dilated_shadow_segment = cv2.dilate(shadow_segment, np.ones((5, 5)))
+
+        # creating a mask where only the edge remains of the segment
+        edge_shadow_segment = cv2.subtract(dilated_shadow_segment, shadow_segment)
+        shadow_edge_mask[edge_shadow_segment == 255] = 255
+
+        # NOTE: MAYBE DILATE ONCE MORE TO GET BETTER COLOUR ACCURACY
+
+        shadow_segment_mean = cv2.mean(image, shadow_segment)
+        edge_shadow_segment_mean = cv2.mean(image, edge_shadow_segment)
+
+        # calculating the just outside to inside ratio
+        blue_ratio = round(edge_shadow_segment_mean[0] / shadow_segment_mean[0], 4)
+        green_ratio = round(edge_shadow_segment_mean[1] / shadow_segment_mean[1], 4)
+        red_ratio = round(edge_shadow_segment_mean[2] / shadow_segment_mean[2], 4)
 
         # copying the original image and zeroing where there's a shadow
-        masked_image = image.copy()
-        masked_image[external_region_mask != 255] = 0
+        mask_image = image.copy()
+        mask_image[dilated_shadow_segment != 255] = 0
 
-        blue, green, red = cv2.split(masked_image)
+        blue, green, red = cv2.split(mask_image)
 
         # multiplying the BGR channels with the constant ratios
         blue = np.dot(blue, blue_ratio)
@@ -96,16 +108,16 @@ def first_method(filename):
         result_image = cv2.merge((blue, green, red))
 
         # converting the matrix from float to integer matrix
-        result_image = cv2.normalize(result_image, None, 255, 0, cv2.NORM_MINMAX, cv2.CV_8U)
+        result_image = cv2.normalize(result_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
         result = cv2.add(image, result_image)
 
-    # creating a mask for edge smoothing
-    edge_mask = np.zeros(result.shape[:2], np.uint8)
-    edge_mask[shadow_region_edges == 255] = 1
+    cv2.imshow("Shadow edges", shadow_edge_mask)
 
-    edge_struct = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    edge_mask = cv2.dilate(edge_mask, edge_struct)
+    # switching the 255 to 1 for matrix calculation
+    shadow_edge_mask[shadow_edge_mask == 255] = 1
+
+    edge_mask = cv2.dilate(shadow_edge_mask, np.ones((5, 5)))
 
     edge_mask = cv2.cvtColor(edge_mask, cv2.COLOR_GRAY2BGR)
 
@@ -113,19 +125,12 @@ def first_method(filename):
     inverted_edge_mask = ~edge_mask + 2
 
     # gauss blur on result image
-    result_gaussian = cv2.GaussianBlur(result, (7, 7), 2, 2)
+    result_gaussian = cv2.GaussianBlur(result, (5, 5), 2, 2)
 
     # with this equation the over illuminated edges are less bright
     result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
 
     cv2.imshow("Result", result)
-
-    # time it took to complete the method
-    e2 = cv2.getTickCount()
-    time = (e2 - e1) / cv2.getTickFrequency()
-
-    print("Completed in : " + str(round(time, 4)) + " seconds")
-
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
