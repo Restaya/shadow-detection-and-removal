@@ -2,12 +2,13 @@ import cv2
 import numpy as np
 
 
-def first_method(filename):
+def first_method_detection(file):
 
-    image = cv2.imread("../test_pictures/" + filename + ".jpg", cv2.IMREAD_COLOR)
+    image = cv2.imread(file, cv2.IMREAD_COLOR)
+
     image_shape = image.shape[:2]
 
-    cv2.imshow("Original", image)
+    #cv2.imshow("Original", image)
 
     # converts the image to lab color space
     lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
@@ -31,23 +32,37 @@ def first_method(filename):
     else:
         shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3) & (
                     b_level <= b_level_mean - b_level_stddev / 3) & (
-                                b_level >= -1 * b_level_mean + b_level_stddev / 3)] = 255
+                    b_level >= -1 * b_level_mean + b_level_stddev / 3)] = 255
 
     # using morphological opening and closing to erase smaller non-shadow pixels
-    mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((7, 7)))
+    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
+    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, np.ones((7, 7)))
 
     #cv2.imshow("Mask after morphological cleaning", mask)
 
-    # note: maybe increase ksize, need testing
     # using median blur to smoothen rough edges
-    mask = cv2.medianBlur(mask, 7)
+    shadow_mask = cv2.medianBlur(shadow_mask, 7)
 
     # mask after using median filter
-    #cv2.imshow("Mask", mask)
+    #cv2.imshow("Mask", shadow_mask)
+
+    cv2.imwrite("results/shadow_mask.png", shadow_mask)
+
+    cv2.imshow("Shadow Mask", shadow_mask)
+
+    print("Shadows detected, shadow mask saved in the results folder")
+
+    return shadow_mask
+
+
+def first_method_removal(file, mask):
+
+    image = cv2.imread(file, cv2.IMREAD_COLOR)
+
+    image_shape = image.shape[:2]
 
     # labeling all white segments
-    _, markers = cv2.connectedComponents(mask,connectivity=8)
+    _, markers = cv2.connectedComponents(mask, connectivity=8)
 
     markers_list = np.unique(markers)
 
@@ -112,7 +127,7 @@ def first_method(filename):
 
         result = cv2.add(image, result_image)
 
-    cv2.imshow("Shadow edges", shadow_edge_mask)
+    #cv2.imshow("Shadow edges", shadow_edge_mask)
 
     # switching the 255 to 1 for matrix calculation
     shadow_edge_mask[shadow_edge_mask == 255] = 1
@@ -130,10 +145,21 @@ def first_method(filename):
     # with this equation the over illuminated edges are less bright
     result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
 
+    #cv2.imshow("Result", result)
+
+    cv2.imwrite("results/shadow_free.png", result)
+
     cv2.imshow("Result", result)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+
+    print("Successful removal, image saved in the results folder")
 
 
 if __name__ == "__main__":
-    first_method("lssd9")
+    file_image = "../test_pictures/lssd9.jpg"
+
+    shadow_mask = first_method_detection(file_image)
+
+    first_method_removal(file_image, shadow_mask)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
