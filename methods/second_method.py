@@ -6,56 +6,60 @@ def second_method_detection(filename):
     image = cv2.imread(filename, cv2.IMREAD_COLOR)
     image_shape = image.shape[:2]
 
-    cv2.imshow("Original", image)
+    #cv2.imshow("Original", image)
 
-    # note: look into it
-    #bi_image = cv2.bilateralFilter(image, 9, 75, 75)
-
-    #cv2.imshow("Bilateral ", bi_image)
-
-    # note: switch to bilater image back
-    blue, green, red = cv2.split(image)
-
-    # finding the maximum and minimums element wise of the image
-    image_max = cv2.max(blue, cv2.max(green, red))
-    image_min = cv2.min(blue, cv2.min(green, red))
-
-    # avoid division with zero
-    image_min = np.where(image_min == 0, 1, image_min)
-    image_max = np.where(image_max == 0, 1, image_max)
-
-    gray_image = cv2.log(image_max / image_min)
-
-    # note: fix normalization, currently from 0 to 3
-    gray_image = cv2.normalize(gray_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-
-    #gray_image = cv2.GaussianBlur(gray_image, (11, 11), sigmaX=1.5,sigmaY=1.5)
-
-    #gray_image = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+    # blue, green, red = cv2.split(image)
+    #     #
+    #     # # finding the maximum and minimums element wise of the image
+    #     # image_max = cv2.max(blue, cv2.max(green, red))
+    #     # image_min = cv2.min(blue, cv2.min(green, red))
+    #     #
+    #     # # avoid division with zero
+    #     # image_min = np.where(image_min == 0, 1, image_min)
+    #     # image_max = np.where(image_max == 0, 1, image_max)
+    #     #
+    #     # gray_image = cv2.log(image_max / image_min)
+    #     #
+    #     # # note: fix normalization, currently from 0 to 3
+    #     # gray_image = cv2.normalize(gray_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
     #cv2.imshow("Gray Image", gray_image)
 
+    gray_image = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
+
     _, thresh = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    #cv2.imshow("Threshold before processing", thresh)
+    # noise removal
+    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, np.ones((5, 5)))
+    #thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, np.ones((7, 7)))
 
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, np.ones((7, 7)))
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, np.ones((7, 7)))
+    # sure background area
+    sure_bg = cv2.dilate(thresh, np.ones((3, 3)), iterations=3)
 
-    cv2.imshow("Morphed Image", thresh)
-
+    # Finding sure foreground area
     dist_transform = cv2.distanceTransform(thresh, cv2.DIST_L2, 5)
-    dist_transform = cv2.normalize(dist_transform, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+    _, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
 
-    #cv2.imshow("Distance Transform", dist_transform)
+    # Finding unknown region
+    sure_fg = np.uint8(sure_fg)
+    unknown = cv2.subtract(sure_bg, sure_fg)
 
-    _, markers = cv2.connectedComponents(dist_transform)
+    # Marker labelling
+    ret, markers = cv2.connectedComponents(sure_fg)
 
+    # Now, mark the region of unknown with zero
+    markers[unknown == 255] = 0
     markers = cv2.watershed(image, markers)
+
+    water_shed_image = image.copy()
+    water_shed_image[markers == -1] = [0, 0, 255]
+
+    cv2.imshow("Watershed Borders", water_shed_image)
 
     # getting the segments through unique values from the watershed result
     markers_list = np.unique(markers)
     print("Number of segments: " + str(len(markers_list)))
+    print(markers_list)
 
     # note: k2 original value is 1.2
     # constants needed for later calculation
@@ -95,7 +99,6 @@ def second_method_detection(filename):
         # creates binary image where only pixels greater than the mean remain
         segment_non_shadow_mask = cv2.inRange(image_segment, segment_mean[0], (255, 255, 255))
 
-        # note: flip the non shadow mask into a shadow mask, then add each other into the color mask
         # adds all non shadows to a binary image used for the final step to get the correct shadow boundaries
         color_mean_non_shadow_mask[segment_non_shadow_mask == 255] = 255
 
@@ -175,7 +178,7 @@ def second_method_detection(filename):
     cv2.imshow("Initial Shadow Mask",initial_shadow_mask)
 
     # the rough shadow mask, where non-shadow segments are corrected
-    cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
+    #cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
 
     # note: switch the initial shadow mask to rough shadow mask once the watershed and delta_b is fixed
     # based on the detected shadows and mean values, it creates the final shadow mask
@@ -199,7 +202,7 @@ def second_method_detection(filename):
 
 
 if __name__ == "__main__":
-    file_image = "../test_pictures/lssd9.jpg"
+    file_image = "../test_pictures/lssd145.jpg"
     second_method_detection(file_image)
 
     cv2.waitKey(0)
