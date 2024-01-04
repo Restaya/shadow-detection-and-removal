@@ -2,67 +2,14 @@ import cv2
 import numpy as np
 
 
-def first_method_detection(file):
-
-    image = cv2.imread(file, cv2.IMREAD_COLOR)
-
-    image_shape = image.shape[:2]
-
-    #cv2.imshow("Original", image)
-
-    # converts the image to lab color space
-    lab_image = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-
-    #cv2.imshow("LAB Image", lab_image)
-
-    # splits the channels of the image
-    light_level, a_level, b_level = cv2.split(lab_image)
-
-    # calculates the mean and standard deviation of each channel in the LAB colour space
-    light_level_mean, light_level_stddev = cv2.meanStdDev(light_level)
-    a_level_mean, a_level_stddev = cv2.meanStdDev(a_level)
-    b_level_mean, b_level_stddev = cv2.meanStdDev(b_level)
-
-    # creates a blank mask with the shape of the image
-    shadow_mask = np.zeros(image_shape, np.uint8)
-
-    # based on a threshold it detects the shadows on the image
-    if a_level_mean + b_level_mean <= 256:
-        shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3)] = 255
-    else:
-        shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3) & (
-                    b_level <= b_level_mean - b_level_stddev / 3) & (
-                    b_level >= -1 * b_level_mean + b_level_stddev / 3)] = 255
-
-    # using morphological opening and closing to erase smaller non-shadow pixels
-    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
-    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, np.ones((7, 7)))
-
-    #cv2.imshow("Mask after morphological cleaning", mask)
-
-    # using median blur to smoothen rough edges
-    shadow_mask = cv2.medianBlur(shadow_mask, 7)
-
-    # mask after using median filter
-    #cv2.imshow("Mask", shadow_mask)
-
-    cv2.imwrite("results/shadow_mask.png", shadow_mask)
-
-    cv2.imshow("Shadow Mask", shadow_mask)
-
-    print("Shadows detected, shadow mask saved in the results folder")
-
-    return shadow_mask
-
-
-def first_method_removal(file, mask):
+def first_removal(file, shadow_mask, partial_results=False):
 
     image = cv2.imread(file, cv2.IMREAD_COLOR)
 
     image_shape = image.shape[:2]
 
     # labeling all white segments
-    _, markers = cv2.connectedComponents(mask, connectivity=8)
+    _, markers = cv2.connectedComponents(shadow_mask, connectivity=8)
 
     markers_list = np.unique(markers)
 
@@ -127,8 +74,6 @@ def first_method_removal(file, mask):
 
         result = cv2.add(image, result_image)
 
-    #cv2.imshow("Shadow edges", shadow_edge_mask)
-
     # switching the 255 to 1 for matrix calculation
     shadow_edge_mask[shadow_edge_mask == 255] = 1
 
@@ -145,21 +90,15 @@ def first_method_removal(file, mask):
     # with this equation the over illuminated edges are less bright
     result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
 
-    #cv2.imshow("Result", result)
-
     cv2.imwrite("results/shadow_free.png", result)
 
     cv2.imshow("Result", result)
 
     print("Successful removal, image saved in the results folder")
 
+    if partial_results:
 
-if __name__ == "__main__":
-    file_image = "../test_pictures/lssd9.jpg"
+        shadow_edge_mask[shadow_edge_mask == 1] = 255
+        cv2.imshow("Shadow edges", shadow_edge_mask)
 
-    shadow_mask = first_method_detection(file_image)
-
-    first_method_removal(file_image, shadow_mask)
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    return result

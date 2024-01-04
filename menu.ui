@@ -29,7 +29,7 @@
      </font>
     </property>
     <property name="text">
-     <string>Choose Image</string>
+     <string>Choose image</string>
     </property>
    </widget>
    <widget class="QLabel" name="label">
@@ -37,8 +37,8 @@
      <rect>
       <x>50</x>
       <y>100</y>
-      <width>241</width>
-      <height>31</height>
+      <width>240</width>
+      <height>30</height>
      </rect>
     </property>
     <property name="font">
@@ -83,16 +83,16 @@
      </font>
     </property>
     <property name="text">
-     <string>Show Image</string>
+     <string>Show image</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_file_name">
     <property name="geometry">
      <rect>
-      <x>290</x>
-      <y>90</y>
-      <width>131</width>
-      <height>41</height>
+      <x>300</x>
+      <y>100</y>
+      <width>130</width>
+      <height>30</height>
      </rect>
     </property>
     <property name="font">
@@ -257,10 +257,10 @@
      </font>
     </property>
     <property name="text">
-     <string>Shadow Removal methods : </string>
+     <string>Shadow removal methods : </string>
     </property>
    </widget>
-   <widget class="QCheckBox" name="checkBox">
+   <widget class="QCheckBox" name="check_box_partial_results">
     <property name="geometry">
      <rect>
       <x>20</x>
@@ -283,7 +283,7 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="shadow_detection"/>
   <buttongroup name="shadow_removal"/>
+  <buttongroup name="shadow_detection"/>
  </buttongroups>
 </ui>
