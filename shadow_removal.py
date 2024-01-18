@@ -25,7 +25,7 @@ def first_removal(file, shadow_mask, partial_results=False):
         temp_mask = np.zeros(image_shape, np.uint8)
         temp_mask[markers == value] = 255
 
-        # note: the 200 threshold is based on try out
+        # the used threshold value is based on testing, the paper doesn't include it
         if cv2.countNonZero(temp_mask) > 200:
             corrected_markers_list.append(value)
 
@@ -45,8 +45,6 @@ def first_removal(file, shadow_mask, partial_results=False):
         # creating a mask where only the edge remains of the segment
         edge_shadow_segment = cv2.subtract(dilated_shadow_segment, shadow_segment)
         shadow_edge_mask[edge_shadow_segment == 255] = 255
-
-        # NOTE: MAYBE DILATE ONCE MORE TO GET BETTER COLOUR ACCURACY
 
         shadow_segment_mean = cv2.mean(image, shadow_segment)
         edge_shadow_segment_mean = cv2.mean(image, edge_shadow_segment)

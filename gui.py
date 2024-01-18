@@ -83,6 +83,9 @@ class UI(QMainWindow):
         if self.image_path and self.radio_button_second_detection.isChecked():
             self.shadow_mask = second_detection(self.image_path, self.partial_results)
 
+            # note: delete if not needed
+            blob_fill(self.shadow_mask)
+
         if self.image_path is None:
             print("You need to select an image!")
         if self.radio_button_first_detection.isChecked() == False and self.radio_button_second_detection.isChecked() == False:

@@ -8,7 +8,7 @@ if __name__ == "__main__":
     # path of the image
     file_image = "test_pictures/lssd9.jpg"
 
-    cv2.imshow("Original Image",cv2.imread(file_image))
+    cv2.imshow("Original Image", cv2.imread(file_image))
 
     # select your choice of shadow detection you want to use by uncommenting the line
 
