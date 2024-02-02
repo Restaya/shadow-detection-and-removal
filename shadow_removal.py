@@ -1,5 +1,9 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+
+from skimage.segmentation import slic
+from skimage.color import label2rgb
 
 
 def first_removal(file, shadow_mask, partial_results=False):
@@ -100,3 +104,45 @@ def first_removal(file, shadow_mask, partial_results=False):
         cv2.imshow("Shadow edges", shadow_edge_mask)
 
     return result
+
+
+def second_removal(file, shadow_mask, partial_results=False):
+
+    image = cv2.imread(file, cv2.IMREAD_COLOR)
+
+    image_shape = image.shape[:2]
+
+    shadow_image = image.copy()
+    non_shadow_image = image.copy()
+
+    shadow_image[shadow_mask != 255] = 0
+    non_shadow_image[shadow_mask == 255] = 0
+
+    shadow_segments = slic(image, n_segments=70, compactness=10, mask=shadow_mask)
+    non_shadow_segments = slic(image, n_segments=70, compactness=10, mask=cv2.bitwise_not(shadow_mask))
+
+    shadow_segments_list = np.unique(shadow_segments)
+    non_shadow_segments_list = np.unique(non_shadow_segments)
+
+    for value in shadow_segments_list:
+
+        segment = image.copy()
+
+        segment[shadow_segments != value] = 0
+
+        #cv2.imshow(str(value) + ".", segment)
+
+
+
+
+
+    if partial_results:
+
+        # Showing the SLIC segmentations result in shadow area
+        cv2.imshow("Shadow segments", label2rgb(shadow_segments,shadow_image,kind="avg"))
+
+        # Showing the SLIC segmentations result in non-shadow area
+        cv2.imshow("Non-Shadow segments", label2rgb(non_shadow_segments, non_shadow_image, kind="avg"))
+
+
+

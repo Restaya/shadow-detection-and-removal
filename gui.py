@@ -102,7 +102,7 @@ class UI(QMainWindow):
             first_removal(self.image_path, self.shadow_mask, self.partial_results)
 
         if self.image_path and self.radio_button_second_removal.isChecked():
-            print("Work in progress!")
+            second_removal(self.image_path, self.shadow_mask, self.partial_results)
 
         if self.image_path is None:
             print("You need to select an image!")

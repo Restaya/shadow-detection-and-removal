@@ -17,7 +17,8 @@ if __name__ == "__main__":
 
     # select your choice of shadow removal you want to use by uncommenting the line
 
-    first_removal(file_image, shadow_mask)
+    #first_removal(file_image, shadow_mask)
+    second_removal(file_image, shadow_mask, True)
 
     # the results are saved in the results folder named respectively
 
