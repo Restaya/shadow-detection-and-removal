@@ -117,12 +117,10 @@ def second_detection(file, partial_results=False):
     # binary mask where the non-shadows are stored
     color_mean_non_shadow_mask = np.zeros(image_shape, np.uint8)
 
-    initial_shadow_segments = []
-    initial_non_shadow_segments = []
-
-    # The first value in markers list is the borders, None at 0 index makes it able to not use value-1 at indexing
-    initial_shadow_segments.append(None)
-    initial_non_shadow_segments.append(None)
+    # creating lists to store each individual segment,
+    # 0th element is the background, None is placed as the first element because it is not used
+    initial_shadow_segments = [None]
+    initial_non_shadow_segments = [None]
 
     for value in markers_list:
 

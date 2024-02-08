@@ -1,6 +1,8 @@
+import sys
+
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
+import math
 
 from skimage.segmentation import slic
 from skimage.color import label2rgb
@@ -118,31 +120,124 @@ def second_removal(file, shadow_mask, partial_results=False):
     shadow_image[shadow_mask != 255] = 0
     non_shadow_image[shadow_mask == 255] = 0
 
+    # using the SLIC algorithm to segment the image in non-shadow and shadow regions
     shadow_segments = slic(image, n_segments=70, compactness=10, mask=shadow_mask)
     non_shadow_segments = slic(image, n_segments=70, compactness=10, mask=cv2.bitwise_not(shadow_mask))
 
+    # making a list out of the labels
     shadow_segments_list = np.unique(shadow_segments)
     non_shadow_segments_list = np.unique(non_shadow_segments)
 
+    print("Number of shadow segments: " + str(len(shadow_segments_list)))
+    print("Number of non-shadow segments: " + str(len(non_shadow_segments_list)))
+
+    # list for storing the centroids of the shadow segments
+    shadow_segments_centers = [None]
+
+    shadow_segments_center = np.zeros(image.shape, np.uint8)
+
+    # calculating the shadow segments centers
     for value in shadow_segments_list:
 
-        segment = image.copy()
+        # ignore the background label
+        if value == 0:
+            continue
 
-        segment[shadow_segments != value] = 0
+        segment_mask = np.zeros(image_shape, np.uint8)
+        segment_mask[shadow_segments == value] = 255
 
-        #cv2.imshow(str(value) + ".", segment)
+        moments = cv2.moments(segment_mask)
+
+        # calculating the center coordinates of the segment
+        cx = int(moments['m10'] / moments['m00'])
+        cy = int(moments['m01'] / moments['m00'])
+
+        # storing the x and y coordinates of the center
+        shadow_segments_centers.append((cx, cy))
+
+        # drawing a circle on the image to showcase the centers
+        cv2.circle(shadow_segments_center, (cx, cy), 3, (0, 0, 255), -1)
+
+    # list for storing the centroids of the non-shadow segments
+    non_shadow_segments_centers = [None]
+
+    non_shadow_segments_center = np.zeros(image.shape, np.uint8)
+
+    # calculating the non-shadow segments centers
+    for value in non_shadow_segments_list:
+
+        # ignore the background label
+        if value == 0:
+            continue
+
+        segment_mask = np.zeros(image_shape, np.uint8)
+        segment_mask[non_shadow_segments == value] = 255
+
+        moments = cv2.moments(segment_mask)
+
+        cx = int(moments['m10'] / moments['m00'])
+        cy = int(moments['m01'] / moments['m00'])
+
+        # storing the x and y coordinates of the center
+        non_shadow_segments_centers.append((cx, cy))
+
+        # drawing a circle on the image to showcase the centroids
+        cv2.circle(non_shadow_segments_center, (cx, cy), 3, (0, 255, 255), -1)
+
+    # storing which non-shadow segment is closest to the shadow segment
+    label_pairs = [None]
+
+    # calculating the possible max Euclidean distance to initialize
+    max_distance = math.dist((0, 0), image_shape)
+
+    for s_value in shadow_segments_list:
+
+        if s_value == 0:
+            continue
+
+        distance = max_distance
+        closest_label = None
+
+        shadow_center = shadow_segments_centers[s_value]
+
+        for n_value in non_shadow_segments_list:
+
+            if n_value == 0:
+                continue
+
+            non_shadow_center = non_shadow_segments_centers[n_value]
+
+            possible_distance = math.dist(shadow_center,non_shadow_center)
+
+            if possible_distance < distance:
+                distance = possible_distance
+                closest_label = n_value
+
+        # index is the shadow segment label, the element is the non-shadow segment label
+        label_pairs.append(closest_label)
 
 
+        #print("The " + str(s_value) + ".th segments distance is: " + str(distance))
 
-
+    #TODO: continue from step 10.
 
     if partial_results:
 
         # Showing the SLIC segmentations result in shadow area
-        cv2.imshow("Shadow segments", label2rgb(shadow_segments,shadow_image,kind="avg"))
+        shadow_segments_colored = label2rgb(shadow_segments, shadow_image, kind="avg")
+        #cv2.imshow("Shadow segments", shadow_segments_colored)
 
         # Showing the SLIC segmentations result in non-shadow area
-        cv2.imshow("Non-Shadow segments", label2rgb(non_shadow_segments, non_shadow_image, kind="avg"))
+        non_shadow_segments_colored = label2rgb(non_shadow_segments, non_shadow_image, kind="avg")
+        #cv2.imshow("Non-Shadow segments", non_shadow_segments_colored)
+
+        # Showing the centroids of the shadow segments
+        shadow_segments_colored_centroids = cv2.add(shadow_segments_colored, shadow_segments_center)
+        cv2.imshow("Centers of shadow segments", shadow_segments_colored_centroids)
+
+        # Showing the centroids of the non-shadow segments
+        non_shadow_segments_colored_centroids = cv2.add(non_shadow_segments_colored, non_shadow_segments_center)
+        cv2.imshow("Centers of non-shadow segments", non_shadow_segments_colored_centroids)
 
 
 
