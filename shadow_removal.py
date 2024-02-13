@@ -6,6 +6,7 @@ import math
 
 from skimage.segmentation import slic
 from skimage.color import label2rgb
+from skimage.exposure import match_histograms
 
 
 def first_removal(file, shadow_mask, partial_results=False):
@@ -219,7 +220,40 @@ def second_removal(file, shadow_mask, partial_results=False):
 
         #print("The " + str(s_value) + ".th segments distance is: " + str(distance))
 
-    #TODO: continue from step 10.
+    result = non_shadow_image.copy()
+
+    # relighting the shadow with the optimal non-shadow pair
+    for i in range(len(label_pairs)):
+
+        if i == 0:
+            continue
+
+        # index is the label value of the shadow segment
+        # the element is the label value of the non-shadow segment
+
+        # empty masks for the segments
+        shadow_segment = image.copy()
+        non_shadow_segment = image.copy()
+
+        shadow_segment[shadow_segments != i] = 0
+        non_shadow_segment[non_shadow_segments != label_pairs[i]] = 0
+
+        relighted_segment = match_histograms(shadow_segment, non_shadow_segment, channel_axis=-1)
+        relighted_segment[shadow_segments != i] = 0
+
+        result = cv2.add(result, relighted_segment)
+
+        # showcasing the chosen pairs
+        # if i == 10:
+        #     cv2.imshow("Shadow seg " + str(i), shadow_segment)
+        #     cv2.imshow("Non-Shadow seg " + str(i), non_shadow_segment)
+
+        if i < 5:
+            cv2.imshow("Relighted segment", relighted_segment)
+
+    cv2.imshow("Result", result)
+
+    cv2.imwrite("results/shadow_free.png", result)
 
     if partial_results:
 
