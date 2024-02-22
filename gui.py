@@ -51,7 +51,7 @@ class UI(QMainWindow):
     def choose_image(self):
 
         # opens file browser
-        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./test_pictures", "Image files (*.jpg , *.png)")
+        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./test_images", "Image files (*.jpg , *.png)")
 
         # outputs the path to the label
         if self.image_path:
@@ -75,6 +75,8 @@ class UI(QMainWindow):
 
     def detect_shadows(self):
 
+        e1 = cv2.getTickCount()
+
         self.partial_results = self.check_box_partial_results.isChecked()
 
         if self.image_path and self.radio_button_first_detection.isChecked():
@@ -83,8 +85,10 @@ class UI(QMainWindow):
         if self.image_path and self.radio_button_second_detection.isChecked():
             self.shadow_mask = second_detection(self.image_path, self.partial_results)
 
-            # note: delete if not needed
-            blob_fill(self.shadow_mask)
+        e2 = cv2.getTickCount()
+        time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
+
+        print("Shadow detection completed in: " + str(time1) + " seconds")
 
         if self.image_path is None:
             print("You need to select an image!")
@@ -96,6 +100,8 @@ class UI(QMainWindow):
 
     def remove_shadows(self):
 
+        e1 = cv2.getTickCount()
+
         self.partial_results = self.check_box_partial_results.isChecked()
 
         if self.image_path and self.radio_button_first_removal.isChecked():
@@ -103,6 +109,11 @@ class UI(QMainWindow):
 
         if self.image_path and self.radio_button_second_removal.isChecked():
             second_removal(self.image_path, self.shadow_mask, self.partial_results)
+
+        e2 = cv2.getTickCount()
+        time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
+
+        print("Shadow removal completed in: " + str(time1) + " seconds")
 
         if self.image_path is None:
             print("You need to select an image!")

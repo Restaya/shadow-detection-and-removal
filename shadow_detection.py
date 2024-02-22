@@ -53,6 +53,9 @@ def first_detection(file, partial_results=False):
 
         cv2.imshow("Shadow Mask before morphological cleaning", rough_shadow_mask)
 
+    shadow_mask = blob_fill(shadow_mask)
+    print("Shadow correction was used!")
+
     return shadow_mask
 
 
@@ -249,6 +252,9 @@ def second_detection(file, partial_results=False):
 
     print("Shadows detected, shadow mask saved in the results folder")
 
+    #note: if it is not needed remove
+    shadow_mask = blob_fill(shadow_mask)
+
     return shadow_mask
 
 
@@ -270,10 +276,12 @@ def blob_fill(shadow_mask):
 
     cv2.imshow("After blobfill", mask)
 
+    return mask
+
 
 if __name__ == "__main__":
 
-    file = "test_pictures/lssd9.jpg"
+    file = "test_images/lssd9.jpg"
 
     mask = second_detection(file, False)
     blob_fill(mask)

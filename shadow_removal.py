@@ -118,12 +118,17 @@ def second_removal(file, shadow_mask, partial_results=False):
     shadow_image = image.copy()
     non_shadow_image = image.copy()
 
+    #shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_DILATE, np.ones((3, 3)))
+
+    non_shadow_mask = cv2.bitwise_not(shadow_mask)
+    #non_shadow_mask = cv2.morphologyEx(non_shadow_mask, cv2.MORPH_ERODE, np.ones((15, 15)))
+
     shadow_image[shadow_mask != 255] = 0
     non_shadow_image[shadow_mask == 255] = 0
 
     # using the SLIC algorithm to segment the image in non-shadow and shadow regions
     shadow_segments = slic(image, n_segments=70, compactness=10, mask=shadow_mask)
-    non_shadow_segments = slic(image, n_segments=70, compactness=10, mask=cv2.bitwise_not(shadow_mask))
+    non_shadow_segments = slic(image, n_segments=70, compactness=10, mask=non_shadow_mask)
 
     # making a list out of the labels
     shadow_segments_list = np.unique(shadow_segments)
@@ -153,11 +158,24 @@ def second_removal(file, shadow_mask, partial_results=False):
         cx = int(moments['m10'] / moments['m00'])
         cy = int(moments['m01'] / moments['m00'])
 
+        # if the center is out of bounds, place it at the border of the image
+        if cx > image_shape[1]:
+            cx = image_shape[1]
+
+        if cy > image_shape[0]:
+            cy = image_shape[0]
+
         # storing the x and y coordinates of the center
         shadow_segments_centers.append((cx, cy))
 
         # drawing a circle on the image to showcase the centers
         cv2.circle(shadow_segments_center, (cx, cy), 3, (0, 0, 255), -1)
+
+    # Showing the SLIC segmentations result in shadow area
+    shadow_segments_colored = label2rgb(shadow_segments, shadow_image, kind="avg")
+
+    # Showing the centroids of the shadow segments
+    shadow_segments_colored_centroids = cv2.add(shadow_segments_colored, shadow_segments_center)
 
     # list for storing the centroids of the non-shadow segments
     non_shadow_segments_centers = [None]
@@ -179,11 +197,30 @@ def second_removal(file, shadow_mask, partial_results=False):
         cx = int(moments['m10'] / moments['m00'])
         cy = int(moments['m01'] / moments['m00'])
 
+        # if the center is out of bounds, place it at the border of the image
+        if cx > image_shape[1]:
+            cx = image_shape[1]
+
+        if cy > image_shape[0]:
+            cy = image_shape[0]
+
         # storing the x and y coordinates of the center
         non_shadow_segments_centers.append((cx, cy))
 
         # drawing a circle on the image to showcase the centroids
         cv2.circle(non_shadow_segments_center, (cx, cy), 3, (0, 255, 255), -1)
+
+    # showing the SLIC segmentations result in non-shadow area
+    non_shadow_segments_colored = label2rgb(non_shadow_segments, non_shadow_image, kind="avg")
+
+    # showing the centroids of the non-shadow segments
+    non_shadow_segments_colored_centroids = cv2.add(non_shadow_segments_colored, non_shadow_segments_center)
+
+    # adding the two center containing images together to showcase who is paired with who
+    image_segment_centers = cv2.add(non_shadow_segments_colored_centroids, shadow_segments_colored_centroids)
+
+    # image showing lines between the optimal pairs
+    image_segment_centers_lines = image_segment_centers.copy()
 
     # storing which non-shadow segment is closest to the shadow segment
     label_pairs = [None]
@@ -208,14 +245,18 @@ def second_removal(file, shadow_mask, partial_results=False):
 
             non_shadow_center = non_shadow_segments_centers[n_value]
 
-            possible_distance = math.dist(shadow_center,non_shadow_center)
+            possible_distance = math.dist(shadow_center, non_shadow_center)
 
             if possible_distance < distance:
                 distance = possible_distance
                 closest_label = n_value
+                final_non_shadow_center = non_shadow_center
 
         # index is the shadow segment label, the element is the non-shadow segment label
         label_pairs.append(closest_label)
+
+        # draws a line between the two centers
+        cv2.line(image_segment_centers_lines, shadow_center, final_non_shadow_center, (255, 0, 0), 1)
 
 
         #print("The " + str(s_value) + ".th segments distance is: " + str(distance))
@@ -248,8 +289,8 @@ def second_removal(file, shadow_mask, partial_results=False):
         #     cv2.imshow("Shadow seg " + str(i), shadow_segment)
         #     cv2.imshow("Non-Shadow seg " + str(i), non_shadow_segment)
 
-        if i < 5:
-            cv2.imshow("Relighted segment", relighted_segment)
+        # if i < 5:
+        #     cv2.imshow("Relighted segment", relighted_segment)
 
     cv2.imshow("Result", result)
 
@@ -257,21 +298,25 @@ def second_removal(file, shadow_mask, partial_results=False):
 
     if partial_results:
 
-        # Showing the SLIC segmentations result in shadow area
-        shadow_segments_colored = label2rgb(shadow_segments, shadow_image, kind="avg")
+        # showing the SLIC segmentations result in shadow area
         #cv2.imshow("Shadow segments", shadow_segments_colored)
 
-        # Showing the SLIC segmentations result in non-shadow area
-        non_shadow_segments_colored = label2rgb(non_shadow_segments, non_shadow_image, kind="avg")
+        # showing the SLIC segmentations result in non-shadow area
         #cv2.imshow("Non-Shadow segments", non_shadow_segments_colored)
 
-        # Showing the centroids of the shadow segments
-        shadow_segments_colored_centroids = cv2.add(shadow_segments_colored, shadow_segments_center)
-        cv2.imshow("Centers of shadow segments", shadow_segments_colored_centroids)
+        # showing the centroids of the shadow segments
+        #cv2.imshow("Centers of shadow segments", shadow_segments_colored_centroids)
 
-        # Showing the centroids of the non-shadow segments
-        non_shadow_segments_colored_centroids = cv2.add(non_shadow_segments_colored, non_shadow_segments_center)
-        cv2.imshow("Centers of non-shadow segments", non_shadow_segments_colored_centroids)
+        # showing the centroids of the non-shadow segments
+        #cv2.imshow("Centers of non-shadow segments", non_shadow_segments_colored_centroids)
+
+        # showing the centroids in one image
+        #cv2.imshow("Centers of the segments", image_segment_centers)
+
+        # showing the optimal pairs chosen with lines drawn between the centers
+        cv2.imshow("Lines between the pairs", image_segment_centers_lines)
+
+
 
 
 
