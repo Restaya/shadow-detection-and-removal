@@ -39,9 +39,9 @@ def first_detection(file, partial_results=False):
     # using median blur to smoothen rough edges
     shadow_mask = cv2.medianBlur(shadow_mask, 7)
 
-    cv2.imwrite("results/shadow_mask.png", shadow_mask)
+    cv2.imwrite("results/shadow_mask_first_detection.png", shadow_mask)
 
-    cv2.imshow("Shadow Mask", shadow_mask)
+    cv2.imshow("Shadow Mask from first shadow detection method", shadow_mask)
 
     print("Shadows detected, shadow mask saved in the results folder")
 
@@ -219,9 +219,9 @@ def second_detection(file, partial_results=False):
     # based on the detected shadows and mean values, it creates the final shadow mask
     shadow_mask = cv2.bitwise_and(rough_shadow_mask, color_mean_shadow_mask)
 
-    cv2.imwrite("../results/shadow_mask.png", shadow_mask)
+    cv2.imwrite("../results/shadow_mask_second_method.png", shadow_mask)
 
-    cv2.imshow("Shadow Mask", shadow_mask)
+    cv2.imshow("Shadow Mask from second shadow method", shadow_mask)
 
     if partial_results:
 

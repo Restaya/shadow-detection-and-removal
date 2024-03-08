@@ -51,7 +51,8 @@ class UI(QMainWindow):
     def choose_image(self):
 
         # opens file browser
-        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./test_images", "Image files (*.jpg , *.png)")
+        #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./test_images", "Image files (*.jpg , *.png)")
+        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../SBU-shadow/SBUTrain4KRecoveredSmall/ShadowImages", "Image files (*.jpg , *.png)")
 
         # outputs the path to the label
         if self.image_path:

@@ -6,7 +6,8 @@ import cv2
 if __name__ == "__main__":
 
     # path of the image
-    file_image = "test_images/lssd803.jpg"
+    file_image = "test_images/lssd9.jpg"
+    # note: image93 decent result
 
     cv2.imshow("Original Image", cv2.imread(file_image))
 

@@ -1,5 +1,3 @@
-import sys
-
 import cv2
 import numpy as np
 import math
@@ -95,9 +93,9 @@ def first_removal(file, shadow_mask, partial_results=False):
     # with this equation the over illuminated edges are less bright
     result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
 
-    cv2.imwrite("results/shadow_free.png", result)
+    cv2.imwrite("results/shadow_free_first_method.png", result)
 
-    cv2.imshow("Result", result)
+    cv2.imshow("Result from first shadow removal", result)
 
     print("Successful removal, image saved in the results folder")
 
@@ -126,9 +124,11 @@ def second_removal(file, shadow_mask, partial_results=False):
     shadow_image[shadow_mask != 255] = 0
     non_shadow_image[shadow_mask == 255] = 0
 
+    # note: not converting the shadow segments to lab seems to improve removal results
+    # TODO test without mask, only try on zero'd out image, may improve
     # using the SLIC algorithm to segment the image in non-shadow and shadow regions
-    shadow_segments = slic(image, n_segments=70, compactness=10, mask=shadow_mask)
-    non_shadow_segments = slic(image, n_segments=70, compactness=10, mask=non_shadow_mask)
+    shadow_segments = slic(image, n_segments=70, compactness=20, mask=shadow_mask, convert2lab=True, enforce_connectivity=True)
+    non_shadow_segments = slic(image, n_segments=70, compactness=20, mask=non_shadow_mask, convert2lab=True, enforce_connectivity=True)
 
     # making a list out of the labels
     shadow_segments_list = np.unique(shadow_segments)
@@ -171,10 +171,10 @@ def second_removal(file, shadow_mask, partial_results=False):
         # drawing a circle on the image to showcase the centers
         cv2.circle(shadow_segments_center, (cx, cy), 3, (0, 0, 255), -1)
 
-    # Showing the SLIC segmentations result in shadow area
+    # showing the SLIC segmentations result in shadow area
     shadow_segments_colored = label2rgb(shadow_segments, shadow_image, kind="avg")
 
-    # Showing the centroids of the shadow segments
+    # showing the centroids of the shadow segments
     shadow_segments_colored_centroids = cv2.add(shadow_segments_colored, shadow_segments_center)
 
     # list for storing the centroids of the non-shadow segments
@@ -258,9 +258,6 @@ def second_removal(file, shadow_mask, partial_results=False):
         # draws a line between the two centers
         cv2.line(image_segment_centers_lines, shadow_center, final_non_shadow_center, (255, 0, 0), 1)
 
-
-        #print("The " + str(s_value) + ".th segments distance is: " + str(distance))
-
     result = non_shadow_image.copy()
 
     # relighting the shadow with the optimal non-shadow pair
@@ -284,17 +281,9 @@ def second_removal(file, shadow_mask, partial_results=False):
 
         result = cv2.add(result, relighted_segment)
 
-        # showcasing the chosen pairs
-        # if i == 10:
-        #     cv2.imshow("Shadow seg " + str(i), shadow_segment)
-        #     cv2.imshow("Non-Shadow seg " + str(i), non_shadow_segment)
+    cv2.imshow("Result from second shadow removal method", result)
 
-        # if i < 5:
-        #     cv2.imshow("Relighted segment", relighted_segment)
-
-    cv2.imshow("Result", result)
-
-    cv2.imwrite("results/shadow_free.png", result)
+    cv2.imwrite("results/shadow_free_second_method.png", result)
 
     if partial_results:
 
