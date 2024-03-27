@@ -149,9 +149,11 @@ def second_removal(file, shadow_mask, partial_results=False):
         if value == 0:
             continue
 
+        # creating a mask for the current segment
         segment_mask = np.zeros(image_shape, np.uint8)
         segment_mask[shadow_segments == value] = 255
 
+        # used to calculate the center of the segment
         moments = cv2.moments(segment_mask)
 
         # calculating the center coordinates of the segment
@@ -245,6 +247,7 @@ def second_removal(file, shadow_mask, partial_results=False):
 
             non_shadow_center = non_shadow_segments_centers[n_value]
 
+            # calculating the euclidean distance between two points
             possible_distance = math.dist(shadow_center, non_shadow_center)
 
             if possible_distance < distance:
@@ -304,6 +307,8 @@ def second_removal(file, shadow_mask, partial_results=False):
 
         # showing the optimal pairs chosen with lines drawn between the centers
         cv2.imshow("Lines between the pairs", image_segment_centers_lines)
+
+    return result
 
 
 

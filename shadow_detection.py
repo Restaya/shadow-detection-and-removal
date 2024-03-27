@@ -113,7 +113,7 @@ def second_detection(file, partial_results=False):
     m = 1.31
     n = 1.19
     k1 = 0.8
-    k2 = 1.2
+    k2 = 1.5
 
     initial_shadow_mask = np.zeros(image_shape, np.uint8)
 
@@ -273,8 +273,6 @@ def blob_fill(shadow_mask):
     mask = cv2.bitwise_and(mask,shadow_mask)
 
     mask = cv2.medianBlur(mask, 3)
-
-    cv2.imshow("After blobfill", mask)
 
     return mask
 

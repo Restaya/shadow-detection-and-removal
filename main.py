@@ -27,8 +27,8 @@ if __name__ == "__main__":
 
     e3 = cv2.getTickCount()
 
-    #first_removal(file_image, shadow_mask)
-    second_removal(file_image, shadow_mask, True)
+    first_removal(file_image, shadow_mask)
+    #second_removal(file_image, shadow_mask, False)
 
     e4 = cv2.getTickCount()
     time2 = round((e4 - e3) / cv2.getTickFrequency(), 4)
