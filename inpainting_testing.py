@@ -8,7 +8,7 @@ from skimage.restoration import inpaint
 
 if __name__ == "__main__":
 
-    file_image = "test_images/lssd9.jpg"
+    file_image = "images/lssd9.jpg"
 
     shadow_mask = first_detection(file_image)
 

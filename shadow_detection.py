@@ -279,7 +279,7 @@ def blob_fill(shadow_mask):
 
 if __name__ == "__main__":
 
-    file = "test_images/lssd9.jpg"
+    file = "images/lssd9.jpg"
 
     mask = second_detection(file, False)
     blob_fill(mask)

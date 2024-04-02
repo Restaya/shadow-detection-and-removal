@@ -6,7 +6,7 @@ from shadow_removal import *
 
 if __name__ == "__main__":
 
-    file_image = "test_images/lssd178.jpg"
+    file_image = "images/lssd178.jpg"
 
     shadow_mask = first_detection(file_image)
 

@@ -6,7 +6,7 @@ import cv2
 if __name__ == "__main__":
 
     # path of the image
-    file_image = "test_images/lssd9.jpg"
+    file_image = "images/lssd9.jpg"
     # note: image93 decent result
 
     cv2.imshow("Original Image", cv2.imread(file_image))
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     e1 = cv2.getTickCount()
 
     shadow_mask = first_detection(file_image)
-    #shadow_mask = second_detection(file_image)
+    #sshadow_mask = second_detection(file_image)
 
     e2 = cv2.getTickCount()
     time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)

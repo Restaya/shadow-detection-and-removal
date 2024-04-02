@@ -6,19 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>664</width>
-    <height>413</height>
+    <width>665</width>
+    <height>460</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Shadow Detection and Removal</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QPushButton" name="push_button_choose_image">
     <property name="geometry">
      <rect>
-      <x>260</x>
-      <y>45</y>
+      <x>130</x>
+      <y>40</y>
       <width>160</width>
       <height>40</height>
      </rect>
@@ -37,7 +37,7 @@
      <rect>
       <x>50</x>
       <y>100</y>
-      <width>291</width>
+      <width>251</width>
       <height>30</height>
      </rect>
     </property>
@@ -48,24 +48,6 @@
     </property>
     <property name="text">
      <string>Name of the chosen image : </string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label_2">
-    <property name="geometry">
-     <rect>
-      <x>50</x>
-      <y>50</y>
-      <width>200</width>
-      <height>30</height>
-     </rect>
-    </property>
-    <property name="font">
-     <font>
-      <pointsize>14</pointsize>
-     </font>
-    </property>
-    <property name="text">
-     <string>Select The Image : </string>
     </property>
    </widget>
    <widget class="QPushButton" name="push_button_show_image">
@@ -89,9 +71,9 @@
    <widget class="QLabel" name="label_file_name">
     <property name="geometry">
      <rect>
-      <x>340</x>
+      <x>300</x>
       <y>100</y>
-      <width>130</width>
+      <width>161</width>
       <height>30</height>
      </rect>
     </property>
@@ -101,14 +83,14 @@
      </font>
     </property>
     <property name="text">
-     <string/>
+     <string>None</string>
     </property>
    </widget>
    <widget class="QRadioButton" name="radio_button_first_detection">
     <property name="geometry">
      <rect>
       <x>50</x>
-      <y>210</y>
+      <y>250</y>
       <width>160</width>
       <height>30</height>
      </rect>
@@ -129,7 +111,7 @@
     <property name="geometry">
      <rect>
       <x>50</x>
-      <y>250</y>
+      <y>290</y>
       <width>190</width>
       <height>30</height>
      </rect>
@@ -149,8 +131,8 @@
    <widget class="QRadioButton" name="radio_button_first_removal">
     <property name="geometry">
      <rect>
-      <x>350</x>
-      <y>210</y>
+      <x>340</x>
+      <y>250</y>
       <width>161</width>
       <height>30</height>
      </rect>
@@ -170,8 +152,8 @@
    <widget class="QRadioButton" name="radio_button_second_removal">
     <property name="geometry">
      <rect>
-      <x>350</x>
-      <y>250</y>
+      <x>340</x>
+      <y>290</y>
       <width>190</width>
       <height>30</height>
      </rect>
@@ -191,8 +173,8 @@
    <widget class="QPushButton" name="push_button_detect_shadows">
     <property name="geometry">
      <rect>
-      <x>100</x>
-      <y>290</y>
+      <x>80</x>
+      <y>340</y>
       <width>200</width>
       <height>50</height>
      </rect>
@@ -210,7 +192,7 @@
     <property name="geometry">
      <rect>
       <x>390</x>
-      <y>290</y>
+      <y>340</y>
       <width>200</width>
       <height>50</height>
      </rect>
@@ -228,7 +210,7 @@
     <property name="geometry">
      <rect>
       <x>50</x>
-      <y>170</y>
+      <y>210</y>
       <width>291</width>
       <height>30</height>
      </rect>
@@ -245,8 +227,8 @@
    <widget class="QLabel" name="label_4">
     <property name="geometry">
      <rect>
-      <x>350</x>
-      <y>170</y>
+      <x>340</x>
+      <y>210</y>
       <width>281</width>
       <height>30</height>
      </rect>
@@ -264,7 +246,7 @@
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>350</y>
+      <y>400</y>
       <width>230</width>
       <height>50</height>
      </rect>
@@ -278,12 +260,84 @@
      <string> Show partial results</string>
     </property>
    </widget>
+   <widget class="QLabel" name="label_5">
+    <property name="geometry">
+     <rect>
+      <x>50</x>
+      <y>160</y>
+      <width>250</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Name of the shadow mask :</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_mask_name">
+    <property name="geometry">
+     <rect>
+      <x>300</x>
+      <y>160</y>
+      <width>160</width>
+      <height>30</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>None</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="push_button_show_mask">
+    <property name="geometry">
+     <rect>
+      <x>480</x>
+      <y>155</y>
+      <width>150</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Show mask</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="push_button_choose_mask">
+    <property name="geometry">
+     <rect>
+      <x>380</x>
+      <y>40</y>
+      <width>201</width>
+      <height>40</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>14</pointsize>
+     </font>
+    </property>
+    <property name="text">
+     <string>Choose Shadow Mask</string>
+    </property>
+   </widget>
   </widget>
  </widget>
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="shadow_detection"/>
   <buttongroup name="shadow_removal"/>
+  <buttongroup name="shadow_detection"/>
  </buttongroups>
 </ui>
