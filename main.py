@@ -7,7 +7,6 @@ if __name__ == "__main__":
 
     # path of the image
     file_image = "images/lssd9.jpg"
-    # note: image93 decent result
 
     cv2.imshow("Original Image", cv2.imread(file_image))
 
@@ -15,8 +14,9 @@ if __name__ == "__main__":
 
     e1 = cv2.getTickCount()
 
-    shadow_mask = first_detection(file_image)
-    #sshadow_mask = second_detection(file_image)
+    #shadow_mask = cv2.imread("shadow_masks/93-1.png",cv2.IMREAD_GRAYSCALE)
+    shadow_mask = first_detection(file_image,True)
+    #shadow_mask = second_detection(file_image)
 
     e2 = cv2.getTickCount()
     time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     e3 = cv2.getTickCount()
 
-    first_removal(file_image, shadow_mask)
+    #first_removal(file_image, shadow_mask)
     #second_removal(file_image, shadow_mask, False)
 
     e4 = cv2.getTickCount()

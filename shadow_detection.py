@@ -27,8 +27,8 @@ def first_detection(file, partial_results=False):
         shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3)] = 255
     else:
         shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3) & (
-                    b_level <= b_level_mean - b_level_stddev / 3) & (
-                    b_level >= -1 * b_level_mean + b_level_stddev / 3)] = 255
+                    b_level <= b_level_mean - b_level_stddev / 3)] = 255#& (
+                    #b_level >= -1 * b_level_mean + b_level_stddev / 3)] = 255
 
     rough_shadow_mask = shadow_mask.copy()
 
@@ -36,8 +36,10 @@ def first_detection(file, partial_results=False):
     shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
     shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, np.ones((7, 7)))
 
+    cv2.imwrite("Shadow mask after morph cleaning.png",shadow_mask)
     # using median blur to smoothen rough edges
     shadow_mask = cv2.medianBlur(shadow_mask, 7)
+
 
     cv2.imwrite("results/shadow_mask_first_detection.png", shadow_mask)
 
@@ -49,9 +51,10 @@ def first_detection(file, partial_results=False):
 
         # cv2.imshow("Original", image)
 
-        # cv2.imshow("LAB Image", lab_image)
+        #cv2.imshow("LAB Image", lab_image)
 
         cv2.imshow("Shadow Mask before morphological cleaning", rough_shadow_mask)
+        cv2.imwrite("Shadow mask before morphological cleaning.png", rough_shadow_mask)
 
     shadow_mask = blob_fill(shadow_mask)
     print("Shadow correction was used!")

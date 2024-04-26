@@ -59,6 +59,7 @@ def first_removal(file, shadow_mask, partial_results=False):
         green_ratio = round(edge_shadow_segment_mean[1] / shadow_segment_mean[1], 4)
         red_ratio = round(edge_shadow_segment_mean[2] / shadow_segment_mean[2], 4)
 
+        # note: why am I using dilated instead of normal segment
         # copying the original image and zeroing where there's a shadow
         mask_image = image.copy()
         mask_image[dilated_shadow_segment != 255] = 0
@@ -127,8 +128,8 @@ def second_removal(file, shadow_mask, partial_results=False):
     # note: not converting the shadow segments to lab seems to improve removal results
     # TODO test without mask, only try on zero'd out image, may improve
     # using the SLIC algorithm to segment the image in non-shadow and shadow regions
-    shadow_segments = slic(image, n_segments=70, compactness=20, mask=shadow_mask, convert2lab=True, enforce_connectivity=True)
-    non_shadow_segments = slic(image, n_segments=70, compactness=20, mask=non_shadow_mask, convert2lab=True, enforce_connectivity=True)
+    shadow_segments = slic(image, n_segments=70, compactness=10, mask=shadow_mask)
+    non_shadow_segments = slic(image, n_segments=70, compactness=10, mask=non_shadow_mask)
 
     # making a list out of the labels
     shadow_segments_list = np.unique(shadow_segments)
@@ -262,6 +263,7 @@ def second_removal(file, shadow_mask, partial_results=False):
         cv2.line(image_segment_centers_lines, shadow_center, final_non_shadow_center, (255, 0, 0), 1)
 
     result = non_shadow_image.copy()
+    #result = cv2.normalize(result, None, 0, 1, cv2.NORM_MINMAX, cv2.CV_32FC1)
 
     # relighting the shadow with the optimal non-shadow pair
     for i in range(len(label_pairs)):
@@ -276,13 +278,37 @@ def second_removal(file, shadow_mask, partial_results=False):
         shadow_segment = image.copy()
         non_shadow_segment = image.copy()
 
+        #shadow_segment = cv2.normalize(shadow_segment, None, 0, 1, cv2.NORM_MINMAX, cv2.CV_32FC1)
+        #non_shadow_segment = cv2.normalize(non_shadow_segment, None, 0, 1, cv2.NORM_MINMAX, cv2.CV_32FC1)
+
         shadow_segment[shadow_segments != i] = 0
         non_shadow_segment[non_shadow_segments != label_pairs[i]] = 0
 
+        # if i == 52:
+        #     print(i, label_pairs[i])
+
+            #cv2.imshow("Problem shadow segment before histogram matching", shadow_segment)
+            #cv2.imshow("Problem non_shadow segment before histogram matching", non_shadow_segment)
+
         relighted_segment = match_histograms(shadow_segment, non_shadow_segment, channel_axis=-1)
+
+        #cv2.imshow(str(i) + "th segment", relighted_segment)
+
+        #if i == 52:
+            # b, g ,r = cv2.split(relighted_segment)
+            # cv2.imshow("b",b)
+            # cv2.imshow("g", g)
+            # cv2.imshow("r", r)
+            #cv2.imshow("Problem segment after histogram matching", relighted_segment)
+
+
         relighted_segment[shadow_segments != i] = 0
 
         result = cv2.add(result, relighted_segment)
+
+
+    #result = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+
 
     cv2.imshow("Result from second shadow removal method", result)
 
@@ -309,8 +335,4 @@ def second_removal(file, shadow_mask, partial_results=False):
         cv2.imshow("Lines between the pairs", image_segment_centers_lines)
 
     return result
-
-
-
-
 
