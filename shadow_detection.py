@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 
+from skimage.segmentation import watershed
 
 def first_detection(file, partial_results=False):
 
@@ -36,14 +37,10 @@ def first_detection(file, partial_results=False):
     shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
     shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, np.ones((7, 7)))
 
-    cv2.imwrite("Shadow mask after morph cleaning.png",shadow_mask)
     # using median blur to smoothen rough edges
     shadow_mask = cv2.medianBlur(shadow_mask, 7)
 
-
-    cv2.imwrite("results/shadow_mask_first_detection.png", shadow_mask)
-
-    cv2.imshow("Shadow Mask from first shadow detection method", shadow_mask)
+    cv2.imshow("test",shadow_mask)
 
     print("Shadows detected, shadow mask saved in the results folder")
 
@@ -54,10 +51,13 @@ def first_detection(file, partial_results=False):
         #cv2.imshow("LAB Image", lab_image)
 
         cv2.imshow("Shadow Mask before morphological cleaning", rough_shadow_mask)
-        cv2.imwrite("Shadow mask before morphological cleaning.png", rough_shadow_mask)
 
     shadow_mask = blob_fill(shadow_mask)
     print("Shadow correction was used!")
+
+    cv2.imshow("Shadow Mask from first shadow detection method", shadow_mask)
+
+    cv2.imwrite("results/shadow_mask_first_method.png", shadow_mask)
 
     return shadow_mask
 
@@ -78,45 +78,33 @@ def second_detection(file, partial_results=False):
 
     gray_image = cv2.log(image_max / image_min)
 
-    # note: fix normalization, currently from 0 to 3
     gray_image = cv2.normalize(gray_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
-
-    #gray_image = cv2.cvtColor(image,cv2.COLOR_BGR2GRAY)
 
     _, thresh = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-    # noise removal
-    # thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, np.ones((7, 7)))
-    #thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, np.ones((7, 7)))
-
-    # sure background area
-    sure_bg = cv2.dilate(thresh, np.ones((3, 3)), iterations=3)
-
     # Finding sure foreground area
     dist_transform = cv2.distanceTransform(thresh, cv2.DIST_L2, 5)
-    _, sure_fg = cv2.threshold(dist_transform, 0.7 * dist_transform.max(), 255, 0)
 
-    # Finding unknown region
-    sure_fg = np.uint8(sure_fg)
-    unknown = cv2.subtract(sure_bg, sure_fg)
+    _, sure_fg = cv2.threshold(dist_transform, 0.6 * dist_transform.max(), 255, 0)
 
-    # Marker labelling
+    sure_fg = cv2.normalize(sure_fg, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+
+    # marker labelling
     ret, markers = cv2.connectedComponents(sure_fg)
 
-    # Now, mark the region of unknown with zero
-    markers[unknown == 255] = 0
-    markers = cv2.watershed(image, markers)
+    # mark the region of unknown with zero
+    markers = watershed(dist_transform, markers, watershed_line=True)
+    borders = image.copy()
 
     # getting the segments through unique values from the watershed result
     markers_list = np.unique(markers)
-    print("Number of segments: " + str(len(markers_list)))
+    print("Number of segments: " + str(len(markers_list - 1)))
 
-    # note: k2 original value is 1.2
     # constants needed for later calculation
     m = 1.31
     n = 1.19
     k1 = 0.8
-    k2 = 1.5
+    k2 = 1.2
 
     initial_shadow_mask = np.zeros(image_shape, np.uint8)
 
@@ -124,14 +112,14 @@ def second_detection(file, partial_results=False):
     color_mean_non_shadow_mask = np.zeros(image_shape, np.uint8)
 
     # creating lists to store each individual segment,
-    # 0th element is the background, None is placed as the first element because it is not used
+    # 0th element is the watershed borders, None is placed as the first element because it is not used
     initial_shadow_segments = [None]
     initial_non_shadow_segments = [None]
 
     for value in markers_list:
 
         # skipping the image where borders are shown
-        if value == -1:
+        if value == 0:
             continue
 
         # getting each segment as a binary mask
@@ -145,7 +133,7 @@ def second_detection(file, partial_results=False):
         image_segment[segment_mask != 255] = 0
 
         # creates binary image where only pixels greater than the mean remain
-        segment_non_shadow_mask = cv2.inRange(image_segment, segment_mean[0], (255, 255, 255))
+        segment_non_shadow_mask = cv2.inRange(image_segment, segment_mean[:3], (255, 255, 255))
 
         # adds all non shadows to a binary image used for the final step to get the correct shadow boundaries
         color_mean_non_shadow_mask[segment_non_shadow_mask == 255] = 255
@@ -166,16 +154,38 @@ def second_detection(file, partial_results=False):
         blue, green, red = cv2.split(initial_shadow_segment)
 
         # subtracting the minimal from the maximum based on the delta vector's two value
-        if delta_vector[0] > delta_vector[1]:
+        max_delta_vector = max(delta_vector)
+        min_delta_vector = min(delta_vector)
+
+        # if red is max and blue is min
+        if max_delta_vector == delta_vector[0] and min_delta_vector == delta_vector[2]:
             x_subtracted = cv2.subtract(red, blue)
-        else:
+
+        # if red is max and green is min
+        if max_delta_vector == delta_vector[0] and min_delta_vector == delta_vector[1]:
+            x_subtracted = cv2.subtract(red, green)
+
+        # if green is max and blue is min
+        if max_delta_vector == delta_vector[1] and min_delta_vector == delta_vector[2]:
             x_subtracted = cv2.subtract(green, blue)
 
-        x_mean = cv2.mean(x_subtracted)
+        # if green is max and red is min
+        if max_delta_vector == delta_vector[1] and min_delta_vector == delta_vector[0]:
+            x_subtracted = cv2.subtract(green, red)
+
+        # if blue is max and red is min
+        if max_delta_vector == delta_vector[2] and min_delta_vector == delta_vector[0]:
+            x_subtracted = cv2.subtract(blue, red)
+
+        # if blue is max and green is min
+        if max_delta_vector == delta_vector[2] and min_delta_vector == delta_vector[1]:
+            x_subtracted = cv2.subtract(blue, green)
+
+        x_mean = cv2.mean(x_subtracted, x_subtracted)[0]
 
         # if the pixel value is lower than x_mean, it's a possible shadow
-        initial_shadow_segment = cv2.inRange(x_subtracted, 0, x_mean[0])
-        initial_non_shadow_segment = cv2.inRange(x_subtracted, x_mean[0], 255)
+        initial_shadow_segment = cv2.inRange(x_subtracted, 0, x_mean)
+        initial_non_shadow_segment = cv2.inRange(x_subtracted, x_mean, 255)
 
         # for visual of the initial shadow mask
         initial_shadow_segment[segment_mask == 0] = 0
@@ -195,14 +205,14 @@ def second_detection(file, partial_results=False):
     for value in markers_list:
 
         # skipping the image where borders are shown
-        if value == -1:
+        if value == 0:
             continue
 
         segment_mean_shadow = cv2.mean(image, initial_shadow_segments[value])
         segment_mean_non_shadow = cv2.mean(image, initial_non_shadow_segments[value])
 
-        l_vector_first_value = round(m * (segment_mean_non_shadow[2]/segment_mean_non_shadow[0]), 4)
-        l_vector_second_value = round(n * (segment_mean_non_shadow[1]/segment_mean_non_shadow[0]), 4)
+        l_vector_first_value = m * (segment_mean_non_shadow[2] / segment_mean_non_shadow[0])
+        l_vector_second_value = n * (segment_mean_non_shadow[1] / segment_mean_non_shadow[0])
 
         l_vector = (l_vector_first_value * delta_b, l_vector_second_value * delta_b, 1 * delta_b)
         l_interval = ((k1 * l_vector[0], k2 * l_vector[0]), (k1 * l_vector[1], k2 * l_vector[1]), (k1 * l_vector[2], k2 * l_vector[2]))
@@ -222,9 +232,15 @@ def second_detection(file, partial_results=False):
     # based on the detected shadows and mean values, it creates the final shadow mask
     shadow_mask = cv2.bitwise_and(rough_shadow_mask, color_mean_shadow_mask)
 
-    cv2.imwrite("../results/shadow_mask_second_method.png", shadow_mask)
+    shadow_mask_before_cleaning = shadow_mask.copy()
 
-    cv2.imshow("Shadow Mask from second shadow method", shadow_mask)
+    #cv2.imshow("Shadow mask before morph cleaning", shadow_mask)
+
+    # morphological cleaning
+    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
+    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, np.ones((7, 7)))
+
+    shadow_mask = cv2.medianBlur(shadow_mask, 7)
 
     if partial_results:
 
@@ -232,18 +248,19 @@ def second_detection(file, partial_results=False):
 
         # cv2.imshow("Gray Image", gray_image)
 
-        # showing the watershed borders
-        water_shed_image = image.copy()
-        water_shed_image[markers == -1] = [0, 0, 255]
-        cv2.imshow("Watershed Borders", water_shed_image)
+        borders[markers == 0] = (0, 0, 255)
+        cv2.imshow("Borders", borders)
 
         # cv2.imshow("Color mean shadow mask", color_mean_shadow_mask)
 
         # the initial detected shadow mask, the borders are from the watershed's algorithm segment borders
-        cv2.imshow("Initial Shadow Mask", initial_shadow_mask)
+        #cv2.imshow("Initial Shadow Mask", initial_shadow_mask)
 
         # the rough shadow mask, where non-shadow segments are removed
-        cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
+        #cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
+
+        # The shadow mask before morphological cleaning
+        cv2.imshow("Shadow mask result before morphological cleaning", shadow_mask_before_cleaning)
 
         # showing the detected shadows on the original image
         shadow_image = image.copy()
@@ -255,8 +272,13 @@ def second_detection(file, partial_results=False):
 
     print("Shadows detected, shadow mask saved in the results folder")
 
-    #note: if it is not needed remove
+    cv2.imshow("Before correction", shadow_mask)
+
     shadow_mask = blob_fill(shadow_mask)
+
+    cv2.imshow("Shadow Mask from second shadow method", shadow_mask)
+
+    cv2.imwrite("results/shadow_mask_second_method.png", shadow_mask)
 
     return shadow_mask
 
@@ -267,15 +289,13 @@ def blob_fill(shadow_mask):
 
     corrected_contours = []
     for contour in contours:
-        if cv2.arcLength(contour, True) > 50:
+        if cv2.arcLength(contour, True) > 200:
             corrected_contours.append(contour)
 
     mask = np.zeros(shadow_mask.shape[:2], np.uint8)
     cv2.drawContours(mask, corrected_contours, -1, 255, -1)
 
-    mask = cv2.bitwise_and(mask,shadow_mask)
-
-    mask = cv2.medianBlur(mask, 3)
+    mask = cv2.medianBlur(mask, 7)
 
     return mask
 
