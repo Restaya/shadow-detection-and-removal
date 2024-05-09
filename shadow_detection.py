@@ -237,8 +237,8 @@ def second_detection(file, partial_results=False):
     #cv2.imshow("Shadow mask before morph cleaning", shadow_mask)
 
     # morphological cleaning
-    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((7, 7)))
-    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, np.ones((7, 7)))
+    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((5, 5)))
+    shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_OPEN, np.ones((5, 5)))
 
     shadow_mask = cv2.medianBlur(shadow_mask, 7)
 
@@ -254,7 +254,7 @@ def second_detection(file, partial_results=False):
         # cv2.imshow("Color mean shadow mask", color_mean_shadow_mask)
 
         # the initial detected shadow mask, the borders are from the watershed's algorithm segment borders
-        #cv2.imshow("Initial Shadow Mask", initial_shadow_mask)
+        cv2.imshow("Initial Shadow Mask", initial_shadow_mask)
 
         # the rough shadow mask, where non-shadow segments are removed
         #cv2.imshow("Rough Shadow Mask", rough_shadow_mask)
@@ -272,7 +272,7 @@ def second_detection(file, partial_results=False):
 
     print("Shadows detected, shadow mask saved in the results folder")
 
-    cv2.imshow("Before correction", shadow_mask)
+    cv2.imwrite("Shadow Mask from second shadow method.png", shadow_mask)
 
     shadow_mask = blob_fill(shadow_mask)
 
@@ -285,15 +285,25 @@ def second_detection(file, partial_results=False):
 
 def blob_fill(shadow_mask):
 
+    _, shadow_segments = cv2.connectedComponents(shadow_mask, connectivity=8)
+    shadow_segments_list = np.unique(shadow_segments)
+
+    for value in shadow_segments_list:
+
+        if value == 0:
+            continue
+
+        segment_mask = np.zeros(shadow_mask.shape, np.uint8)
+
+        segment_mask[shadow_segments == value] = 1
+
+        if np.count_nonzero(segment_mask) < 500:
+            shadow_mask[shadow_segments == value] = 0
+
     contours, _ = cv2.findContours(shadow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
-    corrected_contours = []
-    for contour in contours:
-        if cv2.arcLength(contour, True) > 200:
-            corrected_contours.append(contour)
-
     mask = np.zeros(shadow_mask.shape[:2], np.uint8)
-    cv2.drawContours(mask, corrected_contours, -1, 255, -1)
+    mask = cv2.drawContours(mask, contours, -1, 255, -1)
 
     mask = cv2.medianBlur(mask, 7)
 

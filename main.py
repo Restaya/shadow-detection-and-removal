@@ -15,8 +15,8 @@ if __name__ == "__main__":
     e1 = cv2.getTickCount()
 
     #shadow_mask = cv2.imread("shadow_masks/93-1.png",cv2.IMREAD_GRAYSCALE)
-    shadow_mask = first_detection(file_image,False)
-    #shadow_mask = second_detection(file_image, True)
+    #shadow_mask = first_detection(file_image,False)
+    shadow_mask = second_detection(file_image, False)
 
     e2 = cv2.getTickCount()
     time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     e3 = cv2.getTickCount()
 
     #first_removal(file_image, shadow_mask)
-    second_removal(file_image, shadow_mask, True)
+    #second_removal(file_image, shadow_mask, True)
 
     e4 = cv2.getTickCount()
     time2 = round((e4 - e3) / cv2.getTickFrequency(), 4)
