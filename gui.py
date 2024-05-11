@@ -33,12 +33,18 @@ class UI(QMainWindow):
         self.radio_button_first_removal = self.findChild(QRadioButton, "radio_button_first_removal")
         self.radio_button_second_removal = self.findChild(QRadioButton, "radio_button_second_removal")
 
+        # defining postprocessing radio buttons
+        self.radioButton_no_pp = self.findChild(QRadioButton, "radioButton_no_pp")
+        self.radioButton_inpainting_pp = self.findChild(QRadioButton, "radioButton_inpainting_pp")
+        self.radioButton_median_blur_pp = self.findChild(QRadioButton, "radioButton_median_blur_pp")
+
         self.check_box_partial_results = self.findChild(QCheckBox, "check_box_partial_results")
         self.partial_results = False
 
         self.image_path = None
         self.mask_path = None
         self.shadow_mask = None
+        self.post_processing_operation = None
 
         # defining the choose image button
         self.button_choose_image.clicked.connect(self.choose_image)
@@ -76,10 +82,14 @@ class UI(QMainWindow):
             #self.shadow_mask = None
 
     def choose_mask(self):
-        self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "./results", "Image files (*.jpg , *.png)")
-        self.shadow_mask = cv2.imread(self.mask_path, cv2.IMREAD_GRAYSCALE)
+        self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "./shadow_masks", "Image files (*.jpg , *.png)")
 
-        if self.mask_path:
+        if self.image_path is None:
+            print("You need to select an image first!")
+
+        if self.mask_path and self.image_path:
+
+            self.shadow_mask = cv2.imread(self.mask_path, cv2.IMREAD_GRAYSCALE)
 
             # displays the file's name
             mask_file_name = str.split(self.mask_path, "/")[-1]
@@ -99,7 +109,7 @@ class UI(QMainWindow):
 
     def show_mask(self):
 
-        if self.mask_path:
+        if self.shadow_mask is not None:
 
             cv2.imshow("Shadow mask", self.shadow_mask)
 
@@ -132,6 +142,7 @@ class UI(QMainWindow):
         time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
 
         print("Shadow detection completed in: " + str(time1) + " seconds")
+        print("------------------------------------------------------------------")
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
@@ -154,16 +165,26 @@ class UI(QMainWindow):
 
         self.partial_results = self.check_box_partial_results.isChecked()
 
+        if self.radioButton_no_pp.isChecked():
+            self.post_processing_operation = None
+
+        if self.radioButton_median_blur_pp.isChecked():
+            self.post_processing_operation = "median"
+
+        if self.radioButton_inpainting_pp.isChecked():
+            self.post_processing_operation = "inpainting"
+
         if self.image_path and self.radio_button_first_removal.isChecked():
-            first_removal(self.image_path, self.shadow_mask, self.partial_results)
+            first_removal(self.image_path, self.shadow_mask, self.post_processing_operation, self.partial_results)
 
         if self.image_path and self.radio_button_second_removal.isChecked():
-            second_removal(self.image_path, self.shadow_mask, self.partial_results)
+            second_removal(self.image_path, self.shadow_mask, self.post_processing_operation, self.partial_results)
 
         e2 = cv2.getTickCount()
         time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
 
         print("Shadow removal completed in: " + str(time1) + " seconds")
+        print("------------------------------------------------------------------")
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()

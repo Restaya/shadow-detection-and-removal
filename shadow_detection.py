@@ -3,6 +3,7 @@ import numpy as np
 
 from skimage.segmentation import watershed
 
+
 def first_detection(file, partial_results=False):
 
     image = cv2.imread(file, cv2.IMREAD_COLOR)
@@ -40,8 +41,6 @@ def first_detection(file, partial_results=False):
     # using median blur to smoothen rough edges
     shadow_mask = cv2.medianBlur(shadow_mask, 7)
 
-    cv2.imshow("test",shadow_mask)
-
     print("Shadows detected, shadow mask saved in the results folder")
 
     if partial_results:
@@ -52,17 +51,18 @@ def first_detection(file, partial_results=False):
 
         cv2.imshow("Shadow Mask before morphological cleaning", rough_shadow_mask)
 
-    shadow_mask = blob_fill(shadow_mask)
+    shadow_mask = mask_correction(shadow_mask)
     print("Shadow correction was used!")
 
     cv2.imshow("Shadow Mask from first shadow detection method", shadow_mask)
 
-    cv2.imwrite("results/shadow_mask_first_method.png", shadow_mask)
+    cv2.imwrite("results/First method shadow detection result.png", shadow_mask)
 
     return shadow_mask
 
 
 def second_detection(file, partial_results=False):
+
     image = cv2.imread(file, cv2.IMREAD_COLOR)
     image_shape = image.shape[:2]
 
@@ -224,8 +224,6 @@ def second_detection(file, partial_results=False):
         if (l_interval[0][0] < red_diff < l_interval[0][1]) and (l_interval[1][0] < green_diff < l_interval[1][1]) and (l_interval[2][0] < blue_diff < l_interval[2][1]):
             rough_shadow_mask[initial_shadow_segments[value] == 255] = 255
 
-        #cv2.imshow(str(value), initial_shadow_segments[value])
-
     # where the pixel are lower than the region mean
     color_mean_shadow_mask = cv2.bitwise_not(color_mean_non_shadow_mask)
 
@@ -233,8 +231,6 @@ def second_detection(file, partial_results=False):
     shadow_mask = cv2.bitwise_and(rough_shadow_mask, color_mean_shadow_mask)
 
     shadow_mask_before_cleaning = shadow_mask.copy()
-
-    #cv2.imshow("Shadow mask before morph cleaning", shadow_mask)
 
     # morphological cleaning
     shadow_mask = cv2.morphologyEx(shadow_mask, cv2.MORPH_CLOSE, np.ones((5, 5)))
@@ -272,18 +268,16 @@ def second_detection(file, partial_results=False):
 
     print("Shadows detected, shadow mask saved in the results folder")
 
-    cv2.imwrite("Shadow Mask from second shadow method.png", shadow_mask)
-
-    shadow_mask = blob_fill(shadow_mask)
+    shadow_mask = mask_correction(shadow_mask)
 
     cv2.imshow("Shadow Mask from second shadow method", shadow_mask)
 
-    cv2.imwrite("results/shadow_mask_second_method.png", shadow_mask)
+    cv2.imwrite("results/Second method shadow detection result.png", shadow_mask)
 
     return shadow_mask
 
 
-def blob_fill(shadow_mask):
+def mask_correction(shadow_mask):
 
     _, shadow_segments = cv2.connectedComponents(shadow_mask, connectivity=8)
     shadow_segments_list = np.unique(shadow_segments)
@@ -308,14 +302,3 @@ def blob_fill(shadow_mask):
     mask = cv2.medianBlur(mask, 7)
 
     return mask
-
-
-if __name__ == "__main__":
-
-    file = "images/lssd9.jpg"
-
-    mask = second_detection(file, False)
-    blob_fill(mask)
-
-    cv2.waitKey()
-    cv2.destroyAllWindows()

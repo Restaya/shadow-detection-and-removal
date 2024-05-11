@@ -27,13 +27,14 @@ if __name__ == "__main__":
 
     e3 = cv2.getTickCount()
 
-    #first_removal(file_image, shadow_mask)
-    #second_removal(file_image, shadow_mask, True)
+    first_removal(file_image, shadow_mask, None, False)
+    #second_removal(file_image, shadow_mask, "inpainting")
 
     e4 = cv2.getTickCount()
     time2 = round((e4 - e3) / cv2.getTickFrequency(), 4)
 
     print("Shadow removal completed in: " + str(time2) + " seconds")
+    print("------------------------------------------------------------------")
 
     # the results are saved in the results folder named respectively
 

@@ -5,9 +5,10 @@ import math
 from skimage.segmentation import slic
 from skimage.color import label2rgb
 from skimage.exposure import match_histograms
+from skimage.restoration import inpaint
 
 
-def first_removal(file, shadow_mask, partial_results=False):
+def first_removal(file, shadow_mask, post_processing_operation=None, partial_results=False):
 
     image = cv2.imread(file, cv2.IMREAD_COLOR)
 
@@ -18,28 +19,18 @@ def first_removal(file, shadow_mask, partial_results=False):
 
     markers_list = np.unique(markers)
 
-    # stores the actual values of shadow segments
-    corrected_markers_list = []
+    print("Number of shadow segments: " + str(len(markers_list) - 1))
 
-    # removing small non shadows based on pixel size
-    for value in markers_list:
-
-        if value == 0:
-            continue
-
-        temp_mask = np.zeros(image_shape, np.uint8)
-        temp_mask[markers == value] = 255
-
-        # the used threshold value is based on testing, the paper doesn't include it
-        if cv2.countNonZero(temp_mask) > 200:
-            corrected_markers_list.append(value)
-
-    print("Number of shadow segments: " + str(len(corrected_markers_list)))
+    # image to store all relighted segments
+    relighted_shadow_segments = np.zeros(image.shape, np.uint8)
 
     # storing the shadow edges
     shadow_edge_mask = np.zeros(image_shape, np.uint8)
 
-    for value in corrected_markers_list:
+    for value in markers_list:
+
+        if value == 0:
+            continue
 
         shadow_segment = np.zeros(image_shape, np.uint8)
         shadow_segment[markers == value] = 255
@@ -59,10 +50,9 @@ def first_removal(file, shadow_mask, partial_results=False):
         green_ratio = round(edge_shadow_segment_mean[1] / shadow_segment_mean[1], 4)
         red_ratio = round(edge_shadow_segment_mean[2] / shadow_segment_mean[2], 4)
 
-        # note: why am I using dilated instead of normal segment
         # copying the original image and zeroing where there's a shadow
         mask_image = image.copy()
-        mask_image[dilated_shadow_segment != 255] = 0
+        mask_image[shadow_segment != 255] = 0
 
         blue, green, red = cv2.split(mask_image)
 
@@ -76,25 +66,31 @@ def first_removal(file, shadow_mask, partial_results=False):
         # converting the matrix from float to integer matrix
         result_image = cv2.normalize(result_image, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
-        result = cv2.add(image, result_image)
+        relighted_shadow_segments = cv2.add(relighted_shadow_segments, result_image)
+
+    result = cv2.add(image, relighted_shadow_segments)
+
+    if post_processing_operation is not None:
+
+        result = post_processing(result, shadow_mask, post_processing_operation)
 
     # switching the 255 to 1 for matrix calculation
-    shadow_edge_mask[shadow_edge_mask == 255] = 1
-
-    edge_mask = cv2.dilate(shadow_edge_mask, np.ones((5, 5)))
-
-    edge_mask = cv2.cvtColor(edge_mask, cv2.COLOR_GRAY2BGR)
+    # shadow_edge_mask[shadow_edge_mask == 255] = 1
+    #
+    # edge_mask = cv2.dilate(shadow_edge_mask, np.ones((5, 5)))
+    #
+    # edge_mask = cv2.cvtColor(edge_mask, cv2.COLOR_GRAY2BGR)
 
     # inverting the edge mask
-    inverted_edge_mask = ~edge_mask + 2
+    #inverted_edge_mask = ~edge_mask + 2
 
     # gauss blur on result image
-    result_gaussian = cv2.GaussianBlur(result, (5, 5), 2, 2)
+    #result_gaussian = cv2.GaussianBlur(result, (5, 5), 2, 2)
 
     # with this equation the over illuminated edges are less bright
-    result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
+    #result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
 
-    cv2.imwrite("results/shadow_free_first_method.png", result)
+    cv2.imwrite("results/First method shadow removal result.png", result)
 
     cv2.imshow("Result from first shadow removal", result)
 
@@ -108,7 +104,7 @@ def first_removal(file, shadow_mask, partial_results=False):
     return result
 
 
-def second_removal(file, shadow_mask, partial_results=False):
+def second_removal(file, shadow_mask, post_processing_operation=None, partial_results=False):
 
     image = cv2.imread(file, cv2.IMREAD_COLOR)
 
@@ -130,8 +126,8 @@ def second_removal(file, shadow_mask, partial_results=False):
     shadow_segments_list = np.unique(shadow_segments)
     non_shadow_segments_list = np.unique(non_shadow_segments)
 
-    print("Number of shadow segments: " + str(len(shadow_segments_list)))
-    print("Number of non-shadow segments: " + str(len(non_shadow_segments_list)))
+    print("Number of shadow segments: " + str(len(shadow_segments_list) - 1))
+    print("Number of non-shadow segments: " + str(len(non_shadow_segments_list) - 1))
 
     # list for storing the centroids of the shadow segments
     shadow_segments_centers = [None]
@@ -226,7 +222,7 @@ def second_removal(file, shadow_mask, partial_results=False):
     # calculating the possible max Euclidean distance to initialize
     max_distance = math.dist((0, 0), image_shape)
 
-    # finding the best pair for each shadow segment based on minimal euclidean distance
+    # finding the best pair for each shadow segment based on minimal Euclidean distance
     for s_value in shadow_segments_list:
 
         if s_value == 0:
@@ -244,7 +240,7 @@ def second_removal(file, shadow_mask, partial_results=False):
 
             non_shadow_center = non_shadow_segments_centers[n_value]
 
-            # calculating the euclidean distance between two points
+            # calculating the Euclidean distance between two points
             possible_distance = math.dist(shadow_center, non_shadow_center)
 
             if possible_distance < distance:
@@ -282,9 +278,13 @@ def second_removal(file, shadow_mask, partial_results=False):
 
         result = cv2.add(result, relighted_segment)
 
+    if post_processing_operation is not None:
+
+        result = post_processing(result, shadow_mask, post_processing_operation)
+
     cv2.imshow("Result from second shadow removal method", result)
 
-    cv2.imwrite("results/shadow_free_second_method.png", result)
+    cv2.imwrite("results/Second method shadow removal result.png", result)
 
     if partial_results:
 
@@ -310,3 +310,30 @@ def second_removal(file, shadow_mask, partial_results=False):
 
 # TODO: bring over inpainting and median blur post processing
 # add a parameter to shadow removal functions use None, Median or Inpainting
+
+
+def post_processing(image, shadow_mask, operation):
+
+    dilated_shadow_mask = cv2.dilate(shadow_mask, np.ones((7, 7)))
+    edge = cv2.subtract(dilated_shadow_mask, shadow_mask)
+
+    if operation == "median":
+
+        blurred = cv2.medianBlur(image, 5)
+
+        blurred[edge != 255] = 0
+        image[edge == 255] = 0
+
+        result = cv2.add(image, blurred)
+
+        print("Used median blurr for post processing!")
+
+    if operation == "inpainting":
+
+        result = inpaint.inpaint_biharmonic(image, edge, channel_axis=-1)
+
+        result = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
+
+        print("Used inpainting for post processing!")
+
+    return result

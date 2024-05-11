@@ -526,8 +526,8 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="shadow_removal"/>
-  <buttongroup name="shadow_detection"/>
   <buttongroup name="post_processing"/>
+  <buttongroup name="shadow_detection"/>
+  <buttongroup name="shadow_removal"/>
  </buttongroups>
 </ui>

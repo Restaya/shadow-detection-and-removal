@@ -6,11 +6,11 @@ from shadow_removal import *
 
 if __name__ == "__main__":
 
-    file_image = "images/lssd178.jpg"
+    file_image = "images/lssd9.jpg"
 
     shadow_mask = first_detection(file_image)
 
-    shadow_removal_result = second_removal(file_image, shadow_mask)
+    shadow_removal_result = first_removal(file_image, shadow_mask)
 
     dilated_shadow_mask = cv2.dilate(shadow_mask, np.ones((7, 7)))
 
