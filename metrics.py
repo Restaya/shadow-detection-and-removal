@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-import math
+from math import log10,sqrt
 
 # calculates the mean square error
 def mean_square_error(image, gt_image):
@@ -28,6 +28,15 @@ def mean_square_error(image, gt_image):
         r_mse = np.mean((rt - r) ** 2)
 
         return round(((b_mse + g_mse + r_mse)/3) * 100, 2)
+
+
+def peak_signal_to_noise_ratio(mse):
+
+    if mse == 0:
+        return 0
+
+    return round(20 * log10(255 / sqrt(mse)), 2)
+
 
 
 

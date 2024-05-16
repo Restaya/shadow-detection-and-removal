@@ -1,9 +1,10 @@
-import cv2
+import os
 from PyQt5.QtWidgets import *
 from PyQt5 import uic
 
 from shadow_detection import *
 from shadow_removal import *
+from metrics import *
 
 
 class UI(QMainWindow):
@@ -42,6 +43,7 @@ class UI(QMainWindow):
         self.partial_results = False
 
         self.image_path = None
+        self.image_file_name = None
         self.mask_path = None
         self.shadow_mask = None
         self.post_processing_operation = None
@@ -64,24 +66,48 @@ class UI(QMainWindow):
         # defining the remove shadow button
         self.button_remove_shadows.clicked.connect(self.remove_shadows)
 
+        # defining metric labels
+        self.label_shadow_mask_mse = self.findChild(QLabel, "label_shadow_mask_mse")
+        self.label_shadow_mask_mse.hide()
+
+        self.label_image_mse = self.findChild(QLabel, "label_image_mse")
+        self.label_image_mse.hide()
+
+        self.label_image_psnr = self.findChild(QLabel, "label_image_psnr")
+        self.label_image_psnr.hide()
+
         self.show()
 
     def choose_image(self):
 
+        self.image_path = None
+
+        self.label_shadow_mask_mse.hide()
+        self.label_image_mse.hide()
+        self.label_image_psnr.hide()
+
         # opens file browser
         self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./images", "Image files (*.jpg , *.png)")
         #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../SBU-shadow/SBUTrain4KRecoveredSmall/ShadowImages", "Image files (*.jpg , *.png)")
+        #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../ISTD_Dataset/test/test_A", "Image files (*.jpg , *.png)")
 
         # outputs the path to the label
         if self.image_path:
 
             # displays the file's name
-            image_file_name = str.split(self.image_path, "/")[-1]
+            image_file_name = self.image_path.split("/")[-1]
+
+            self.image_file_name = image_file_name.split(".")[0]
             self.label_file_name.setText(image_file_name)
 
-            #self.shadow_mask = None
-
     def choose_mask(self):
+
+        self.mask_path = None
+
+        self.label_shadow_mask_mse.hide()
+        self.label_image_mse.hide()
+        self.label_image_psnr.hide()
+
         self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "./shadow_masks", "Image files (*.jpg , *.png)")
 
         if self.image_path is None:
@@ -92,7 +118,7 @@ class UI(QMainWindow):
             self.shadow_mask = cv2.imread(self.mask_path, cv2.IMREAD_GRAYSCALE)
 
             # displays the file's name
-            mask_file_name = str.split(self.mask_path, "/")[-1]
+            mask_file_name = self.mask_path.split("/")[-1]
             self.label_mask_name.setText(mask_file_name)
 
     def show_image(self):
@@ -134,15 +160,33 @@ class UI(QMainWindow):
 
         if self.image_path and self.radio_button_first_detection.isChecked():
             self.shadow_mask = first_detection(self.image_path, self.partial_results)
+            self.label_mask_name.setText("First shadow detection mask")
 
         if self.image_path and self.radio_button_second_detection.isChecked():
             self.shadow_mask = second_detection(self.image_path, self.partial_results)
+            self.label_mask_name.setText("Second shadow detection mask")
 
         e2 = cv2.getTickCount()
         time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
 
         print("Shadow detection completed in: " + str(time1) + " seconds")
-        print("------------------------------------------------------------------")
+        print("-" * 50)
+
+        # showing the shadow mask metric if there is a ground truth shadow mask in folder
+        if os.path.exists("shadow_masks/" + self.image_file_name + ".png") or os.path.exists(
+                "shadow_masks/" + self.image_file_name + ".jpg"):
+
+            if os.path.exists("shadow_masks/" + self.image_file_name + ".png"):
+                gt_mask_file = "shadow_masks/" + self.image_file_name + ".png"
+            else:
+                gt_mask_file = "shadow_masks/" + self.image_file_name + ".jpg"
+
+            gt_mask = cv2.imread(gt_mask_file, cv2.IMREAD_GRAYSCALE)
+
+            mask_mse = mean_square_error(self.shadow_mask, gt_mask)
+
+            self.label_shadow_mask_mse.setText("Shadow mask MSE: " + str(mask_mse))
+            self.label_shadow_mask_mse.show()
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()
@@ -184,7 +228,31 @@ class UI(QMainWindow):
         time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
 
         print("Shadow removal completed in: " + str(time1) + " seconds")
-        print("------------------------------------------------------------------")
+        print("-" * 50)
+
+        # mean square error calculation for images
+        if os.path.exists("ground_truth_images/" + self.image_file_name + ".png") or os.path.exists("ground_truth_images/" + self.image_file_name + ".jpg"):
+
+            if os.path.exists("ground_truth_images/" + self.image_file_name + ".png"):
+                gt_image_file = "ground_truth_images/" + self.image_file_name + ".png"
+            else:
+                gt_image_file = "ground_truth_images/" + self.image_file_name + ".jpg"
+
+            gt_image = cv2.imread(gt_image_file, cv2.IMREAD_COLOR)
+            image = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
+
+            image_mse = mean_square_error(image, gt_image)
+
+            self.label_image_mse.setText("Image MSE: " + str(image_mse))
+            self.label_image_mse.show()
+
+        # peak noise to signal ratio calculation
+        if os.path.exists("ground_truth_images/" + self.image_file_name + ".png") or os.path.exists("ground_truth_images/" + self.image_file_name + ".jpg"):
+
+            psnr = peak_signal_to_noise_ratio(image_mse)
+
+            self.label_image_psnr.setText("Image PSNR: " + str(psnr) + "db")
+            self.label_image_psnr.show()
 
         cv2.waitKey(0)
         cv2.destroyAllWindows()

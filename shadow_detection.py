@@ -41,8 +41,6 @@ def first_detection(file, partial_results=False):
     # using median blur to smoothen rough edges
     shadow_mask = cv2.medianBlur(shadow_mask, 7)
 
-    print("Shadows detected, shadow mask saved in the results folder")
-
     if partial_results:
 
         # cv2.imshow("Original", image)
@@ -52,7 +50,6 @@ def first_detection(file, partial_results=False):
         cv2.imshow("Shadow Mask before morphological cleaning", rough_shadow_mask)
 
     shadow_mask = mask_correction(shadow_mask)
-    print("Shadow correction was used!")
 
     cv2.imshow("Shadow Mask from first shadow detection method", shadow_mask)
 
@@ -265,8 +262,6 @@ def second_detection(file, partial_results=False):
         # showing the watershed borders for visuals
         shadow_image[markers == -1] = [0, 0, 255]
         #cv2.imshow("Detected shadows with watershed borders", shadow_image)
-
-    print("Shadows detected, shadow mask saved in the results folder")
 
     shadow_mask = mask_correction(shadow_mask)
 

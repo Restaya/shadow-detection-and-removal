@@ -74,27 +74,9 @@ def first_removal(file, shadow_mask, post_processing_operation=None, partial_res
 
         result = post_processing(result, shadow_mask, post_processing_operation)
 
-    # switching the 255 to 1 for matrix calculation
-    # shadow_edge_mask[shadow_edge_mask == 255] = 1
-    #
-    # edge_mask = cv2.dilate(shadow_edge_mask, np.ones((5, 5)))
-    #
-    # edge_mask = cv2.cvtColor(edge_mask, cv2.COLOR_GRAY2BGR)
-
-    # inverting the edge mask
-    #inverted_edge_mask = ~edge_mask + 2
-
-    # gauss blur on result image
-    #result_gaussian = cv2.GaussianBlur(result, (5, 5), 2, 2)
-
-    # with this equation the over illuminated edges are less bright
-    #result = (result_gaussian * edge_mask) + (result * inverted_edge_mask)
-
     cv2.imwrite("results/First method shadow removal result.png", result)
 
     cv2.imshow("Result from first shadow removal", result)
-
-    print("Successful removal, image saved in the results folder")
 
     if partial_results:
 
@@ -307,9 +289,6 @@ def second_removal(file, shadow_mask, post_processing_operation=None, partial_re
         cv2.imshow("Lines between the pairs", image_segment_centers_lines)
 
     return result
-
-# TODO: bring over inpainting and median blur post processing
-# add a parameter to shadow removal functions use None, Median or Inpainting
 
 
 def post_processing(image, shadow_mask, operation):
