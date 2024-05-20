@@ -83,15 +83,16 @@ class UI(QMainWindow):
     def choose_image(self):
 
         self.image_path = None
+        self.gt_image = None
 
         self.label_shadow_mask_mse.hide()
         self.label_image_mse.hide()
         self.label_image_psnr.hide()
 
         # opens file browser
-        #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./images", "Image files (*.jpg , *.png)")
+        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./images", "Image files (*.jpg , *.png)")
         #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../SBU-shadow/SBUTrain4KRecoveredSmall/ShadowImages", "Image files (*.jpg , *.png)")
-        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../ISTD_Dataset/train/train_A", "Image files (*.jpg , *.png)")
+        #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../ISTD_Dataset/train/train_A", "Image files (*.jpg , *.png)")
 
         # outputs the path to the label
         if self.image_path:
@@ -105,13 +106,14 @@ class UI(QMainWindow):
     def choose_mask(self):
 
         self.mask_path = None
+        self.gt_mask = None
 
         self.label_shadow_mask_mse.hide()
         self.label_image_mse.hide()
         self.label_image_psnr.hide()
 
-        #self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "./shadow_masks", "Image files (*.jpg , *.png)")
-        self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "../ISTD_Dataset/train/train_B", "Image files (*.jpg , *.png)")
+        self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "./shadow_masks", "Image files (*.jpg , *.png)")
+        #self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "../ISTD_Dataset/train/train_B", "Image files (*.jpg , *.png)")
 
         if self.image_path is None:
             print("You need to select an image first!")
@@ -186,7 +188,7 @@ class UI(QMainWindow):
 
             self.gt_mask = cv2.imread(gt_mask_file, cv2.IMREAD_GRAYSCALE)
 
-            mask_mse = mean_square_error(self.shadow_mask, gt_mask)
+            mask_mse = mean_square_error(self.shadow_mask, self.gt_mask)
 
             self.label_shadow_mask_mse.setText("Shadow mask MSE: " + str(mask_mse))
             self.label_shadow_mask_mse.show()
