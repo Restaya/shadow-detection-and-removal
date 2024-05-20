@@ -19,3 +19,8 @@ https://link.springer.com/article/10.1007/s11042-023-16282-0
 
 Run gui.py to start the program with GUI <br>
 Run menu.py to start the program without gui, you can uncomment which methods you want to use
+
+As metrics the mean square error is calculated for the shadow mask and image, peak signal-to-noise ratio is calculated as well for the image.<br>
+To calculate those the ground truth shadow mask and image is needed, same size and name as your chosen image, put them in their respective folders.<br>
+It can be either images with .jpg and .png extension.<br>
+If the images size or channel count doesn't match, metrics won't be calculated.

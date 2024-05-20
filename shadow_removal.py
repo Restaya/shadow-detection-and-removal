@@ -101,8 +101,8 @@ def second_removal(file, shadow_mask, post_processing_operation=None, partial_re
     non_shadow_image[shadow_mask == 255] = 0
 
     # using the SLIC algorithm to segment the image in non-shadow and shadow regions
-    shadow_segments = slic(image, n_segments=70, compactness=10, mask=shadow_mask)
-    non_shadow_segments = slic(image, n_segments=60, compactness=8, mask=non_shadow_mask)
+    shadow_segments = slic(image, n_segments=70, compactness=20, mask=shadow_mask, enforce_connectivity=True)
+    non_shadow_segments = slic(image, n_segments=70, compactness=20, mask=non_shadow_mask, enforce_connectivity=True)
 
     # making a list out of the labels
     shadow_segments_list = np.unique(shadow_segments)
@@ -294,7 +294,10 @@ def second_removal(file, shadow_mask, post_processing_operation=None, partial_re
 def post_processing(image, shadow_mask, operation):
 
     dilated_shadow_mask = cv2.dilate(shadow_mask, np.ones((7, 7)))
+
     edge = cv2.subtract(dilated_shadow_mask, shadow_mask)
+    edge = cv2.dilate(edge, np.ones((3, 3)))
+    edge = cv2.medianBlur(edge, 3)
 
     if operation == "median":
 
@@ -305,14 +308,18 @@ def post_processing(image, shadow_mask, operation):
 
         result = cv2.add(image, blurred)
 
-        print("Used median blurr for post processing!")
+        print("Used median blur for post processing!")
+
+        return result
 
     if operation == "inpainting":
 
-        result = inpaint.inpaint_biharmonic(image, edge, channel_axis=-1)
+        image[edge == 255] = 0
+
+        result = inpaint.inpaint_biharmonic(image, mask=edge, channel_axis=-1)
 
         result = cv2.normalize(result, None, 0, 255, cv2.NORM_MINMAX, cv2.CV_8U)
 
         print("Used inpainting for post processing!")
 
-    return result
+        return result

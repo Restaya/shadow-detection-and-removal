@@ -46,6 +46,8 @@ class UI(QMainWindow):
         self.image_file_name = None
         self.mask_path = None
         self.shadow_mask = None
+        self.gt_mask = None
+        self.gt_image = None
         self.post_processing_operation = None
 
         # defining the choose image button
@@ -87,9 +89,9 @@ class UI(QMainWindow):
         self.label_image_psnr.hide()
 
         # opens file browser
-        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./images", "Image files (*.jpg , *.png)")
+        #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "./images", "Image files (*.jpg , *.png)")
         #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../SBU-shadow/SBUTrain4KRecoveredSmall/ShadowImages", "Image files (*.jpg , *.png)")
-        #self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../ISTD_Dataset/test/test_A", "Image files (*.jpg , *.png)")
+        self.image_path, _ = QFileDialog.getOpenFileName(self, "Choose Image", "../ISTD_Dataset/train/train_A", "Image files (*.jpg , *.png)")
 
         # outputs the path to the label
         if self.image_path:
@@ -108,7 +110,8 @@ class UI(QMainWindow):
         self.label_image_mse.hide()
         self.label_image_psnr.hide()
 
-        self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "./shadow_masks", "Image files (*.jpg , *.png)")
+        #self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "./shadow_masks", "Image files (*.jpg , *.png)")
+        self.mask_path, _ = QFileDialog.getOpenFileName(self, "Choose Shadow Mask", "../ISTD_Dataset/train/train_B", "Image files (*.jpg , *.png)")
 
         if self.image_path is None:
             print("You need to select an image first!")
@@ -181,7 +184,7 @@ class UI(QMainWindow):
             else:
                 gt_mask_file = "shadow_masks/" + self.image_file_name + ".jpg"
 
-            gt_mask = cv2.imread(gt_mask_file, cv2.IMREAD_GRAYSCALE)
+            self.gt_mask = cv2.imread(gt_mask_file, cv2.IMREAD_GRAYSCALE)
 
             mask_mse = mean_square_error(self.shadow_mask, gt_mask)
 
@@ -219,10 +222,10 @@ class UI(QMainWindow):
             self.post_processing_operation = "inpainting"
 
         if self.image_path and self.radio_button_first_removal.isChecked():
-            first_removal(self.image_path, self.shadow_mask, self.post_processing_operation, self.partial_results)
+            shadow_free = first_removal(self.image_path, self.shadow_mask, self.post_processing_operation, self.partial_results)
 
         if self.image_path and self.radio_button_second_removal.isChecked():
-            second_removal(self.image_path, self.shadow_mask, self.post_processing_operation, self.partial_results)
+            shadow_free = second_removal(self.image_path, self.shadow_mask, self.post_processing_operation, self.partial_results)
 
         e2 = cv2.getTickCount()
         time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
@@ -238,10 +241,13 @@ class UI(QMainWindow):
             else:
                 gt_image_file = "ground_truth_images/" + self.image_file_name + ".jpg"
 
-            gt_image = cv2.imread(gt_image_file, cv2.IMREAD_COLOR)
+            self.gt_image = cv2.imread(gt_image_file, cv2.IMREAD_COLOR)
             image = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
 
-            image_mse = mean_square_error(image, gt_image)
+            shadow_free[self.gt_mask != 255] = 0
+            self.gt_image[self.gt_mask != 255] = 0
+
+            image_mse = mean_square_error(image, self.gt_image)
 
             self.label_image_mse.setText("Image MSE: " + str(image_mse))
             self.label_image_mse.show()

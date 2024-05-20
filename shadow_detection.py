@@ -28,9 +28,7 @@ def first_detection(file, partial_results=False):
     if a_level_mean + b_level_mean <= 256:
         shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3)] = 255
     else:
-        shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3) & (
-                    b_level <= b_level_mean - b_level_stddev / 3)] = 255#& (
-                    #b_level >= -1 * b_level_mean + b_level_stddev / 3)] = 255
+        shadow_mask[(light_level <= light_level_mean - light_level_stddev / 3) & (b_level <= b_level_mean - b_level_stddev / 3)] = 255
 
     rough_shadow_mask = shadow_mask.copy()
 
