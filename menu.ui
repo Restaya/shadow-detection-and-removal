@@ -340,7 +340,7 @@
      <rect>
       <x>40</x>
       <y>420</y>
-      <width>281</width>
+      <width>331</width>
       <height>30</height>
      </rect>
     </property>
@@ -350,13 +350,13 @@
      </font>
     </property>
     <property name="text">
-     <string>Shadow mask MSE:</string>
+     <string>Shadow mask RMSE:</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_image_mse">
     <property name="geometry">
      <rect>
-      <x>340</x>
+      <x>380</x>
       <y>420</y>
       <width>251</width>
       <height>30</height>
@@ -368,13 +368,13 @@
      </font>
     </property>
     <property name="text">
-     <string>Image MSE:</string>
+     <string>Image RMSE:</string>
     </property>
    </widget>
    <widget class="QLabel" name="label_image_psnr">
     <property name="geometry">
      <rect>
-      <x>630</x>
+      <x>660</x>
       <y>420</y>
       <width>261</width>
       <height>30</height>
@@ -475,8 +475,8 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="shadow_detection"/>
   <buttongroup name="shadow_removal"/>
   <buttongroup name="post_processing"/>
+  <buttongroup name="shadow_detection"/>
  </buttongroups>
 </ui>

@@ -84,6 +84,7 @@ class UI(QMainWindow):
 
         self.image_path = None
         self.gt_image = None
+        self.gt_mask = None
 
         self.label_shadow_mask_mse.hide()
         self.label_image_mse.hide()
@@ -103,10 +104,28 @@ class UI(QMainWindow):
             self.image_file_name = image_file_name.split(".")[0]
             self.label_file_name.setText(image_file_name)
 
+        # checking if there is a ground truth shadow mask
+        if os.path.exists("shadow_masks/" + self.image_file_name + ".png") or os.path.exists("shadow_masks/" + self.image_file_name + ".jpg"):
+
+            if os.path.exists("shadow_masks/" + self.image_file_name + ".png"):
+                gt_mask_file = "shadow_masks/" + self.image_file_name + ".png"
+            else:
+                gt_mask_file = "shadow_masks/" + self.image_file_name + ".jpg"
+
+            self.gt_mask = cv2.imread(gt_mask_file, cv2.IMREAD_GRAYSCALE)
+
+        if os.path.exists("ground_truth_images/" + self.image_file_name + ".png") or os.path.exists("ground_truth_images/" + self.image_file_name + ".jpg"):
+
+            if os.path.exists("ground_truth_images/" + self.image_file_name + ".png"):
+                gt_image_file = "ground_truth_images/" + self.image_file_name + ".png"
+            else:
+                gt_image_file = "ground_truth_images/" + self.image_file_name + ".jpg"
+
+            self.gt_image = cv2.imread(gt_image_file, cv2.IMREAD_COLOR)
+
     def choose_mask(self):
 
         self.mask_path = None
-        self.gt_mask = None
 
         self.label_shadow_mask_mse.hide()
         self.label_image_mse.hide()
@@ -178,19 +197,12 @@ class UI(QMainWindow):
         print("-" * 50)
 
         # showing the shadow mask metric if there is a ground truth shadow mask in folder
-        if os.path.exists("shadow_masks/" + self.image_file_name + ".png") or os.path.exists(
-                "shadow_masks/" + self.image_file_name + ".jpg"):
-
-            if os.path.exists("shadow_masks/" + self.image_file_name + ".png"):
-                gt_mask_file = "shadow_masks/" + self.image_file_name + ".png"
-            else:
-                gt_mask_file = "shadow_masks/" + self.image_file_name + ".jpg"
-
-            self.gt_mask = cv2.imread(gt_mask_file, cv2.IMREAD_GRAYSCALE)
+        if self.gt_mask is not None:
 
             mask_mse = mean_square_error(self.shadow_mask, self.gt_mask)
+            mask_rmse = round(sqrt(mask_mse), 2)
 
-            self.label_shadow_mask_mse.setText("Shadow mask MSE: " + str(mask_mse))
+            self.label_shadow_mask_mse.setText("Shadow mask RMSE: " + str(mask_rmse))
             self.label_shadow_mask_mse.show()
 
         cv2.waitKey(0)
@@ -208,6 +220,10 @@ class UI(QMainWindow):
 
         if not self.radio_button_first_removal.isChecked() and not self.radio_button_second_removal.isChecked():
             print("You need to select a method!")
+            return
+
+        if cv2.imread(self.image_path, cv2.IMREAD_COLOR).shape[0] != self.shadow_mask.shape[0]:
+            print("The image and shadow mask is not the same size!")
             return
 
         e1 = cv2.getTickCount()
@@ -230,32 +246,25 @@ class UI(QMainWindow):
             shadow_free = second_removal(self.image_path, self.shadow_mask, self.post_processing_operation, self.partial_results)
 
         e2 = cv2.getTickCount()
-        time1 = round((e2 - e1) / cv2.getTickFrequency(), 4)
+        time1 = round((e2 - e1) / cv2.getTickFrequency(), 2)
 
         print("Shadow removal completed in: " + str(time1) + " seconds")
         print("-" * 50)
 
         # mean square error calculation for images
-        if os.path.exists("ground_truth_images/" + self.image_file_name + ".png") or os.path.exists("ground_truth_images/" + self.image_file_name + ".jpg"):
+        if self.gt_mask is not None and self.gt_image is not None:
 
-            if os.path.exists("ground_truth_images/" + self.image_file_name + ".png"):
-                gt_image_file = "ground_truth_images/" + self.image_file_name + ".png"
-            else:
-                gt_image_file = "ground_truth_images/" + self.image_file_name + ".jpg"
+            shadow_free_shadow_only = shadow_free.copy()
+            gt_image_shadow_only = self.gt_image.copy()
 
-            self.gt_image = cv2.imread(gt_image_file, cv2.IMREAD_COLOR)
-            image = cv2.imread(self.image_path, cv2.IMREAD_COLOR)
+            shadow_free_shadow_only[self.gt_mask != 255] = 0
+            gt_image_shadow_only[self.gt_mask != 255] = 0
 
-            shadow_free[self.gt_mask != 255] = 0
-            self.gt_image[self.gt_mask != 255] = 0
+            image_mse = mean_square_error(shadow_free_shadow_only, gt_image_shadow_only)
+            image_rmse = round(sqrt(image_mse), 2)
 
-            image_mse = mean_square_error(image, self.gt_image)
-
-            self.label_image_mse.setText("Image MSE: " + str(image_mse))
+            self.label_image_mse.setText("Image RMSE: " + str(image_rmse))
             self.label_image_mse.show()
-
-        # peak noise to signal ratio calculation
-        if os.path.exists("ground_truth_images/" + self.image_file_name + ".png") or os.path.exists("ground_truth_images/" + self.image_file_name + ".jpg"):
 
             psnr = peak_signal_to_noise_ratio(image_mse)
 

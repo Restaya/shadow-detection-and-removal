@@ -31,11 +31,11 @@ if __name__ == "__main__":
 
     e3 = cv2.getTickCount()
 
-    shadow_free = first_removal(file_image, shadow_mask, "inpainting", False)
+    shadow_free = first_removal(file_image, shadow_mask, None, False)
     #shadow_free = second_removal(file_image, shadow_mask, None, False)
 
     e4 = cv2.getTickCount()
-    time2 = round((e4 - e3) / cv2.getTickFrequency(), 4)
+    time2 = round((e4 - e3) / cv2.getTickFrequency(), 2)
 
     print("Shadow removal completed in: " + str(time2) + " seconds")
     print("-" * 25)
@@ -55,8 +55,9 @@ if __name__ == "__main__":
         gt_mask = cv2.imread(gt_mask_file, cv2.IMREAD_GRAYSCALE)
 
         mask_mse = mean_square_error(shadow_mask, gt_mask)
+        mask_rmse = round(sqrt(mask_mse), 2)
 
-        print("The mean square error of the shadow mask is: " + str(mask_mse))
+        print("The mean square error of the shadow mask is: " + str(mask_rmse))
 
     # mean square error calculation for the removed shadow areas
     if os.path.exists("ground_truth_images/" + image_file_name + ".png") or os.path.exists("ground_truth_images/" + image_file_name + ".jpg"):
@@ -72,12 +73,11 @@ if __name__ == "__main__":
         gt_image[gt_mask != 255] = 0
 
         image_mse = mean_square_error(shadow_free, gt_image)
+        image_rmse = round(sqrt(image_mse), 2)
 
-        print("The mean square error of the image is: " + str(image_mse))
+        print("The root mean squared error of the image is: " + str(image_rmse))
 
-    # peak noise to signal ratio calculation
-    if os.path.exists("ground_truth_images/" + image_file_name + ".png") or os.path.exists("ground_truth_images/" + image_file_name + ".jpg"):
-
+        # peak noise to signal ratio calculation
         psnr = peak_signal_to_noise_ratio(image_mse)
 
         print("The peak signal to noise ratio is: " + str(psnr) + "db")

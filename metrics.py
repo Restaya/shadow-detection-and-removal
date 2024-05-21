@@ -17,7 +17,13 @@ def mean_square_error(image, gt_image):
         print("Not equal channel numbers")
         return
 
-    return round(np.mean((gt_image - image) ** 2), 4)
+    err = np.sum((gt_image.astype("float") - image.astype("float")) ** 2)
+    err /= float(image.shape[0] * image.shape[1])
+
+    if image.shape[-1] == 3:
+        return round(err/3, 2)
+
+    return round(err, 2)
 
 
 def peak_signal_to_noise_ratio(mse):
